@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  redis:
+    container_name: redis
+    image: redis:latest
+    hostname: redis
+    restart: always
+    tty: true
+    command: redis-server --appendonly yes
+    environment:
+      TZ: Asia/Shanghai
+      maxmemory: 1G
+    ports:
+      - 6379:6379
+    volumes:
+      - /opt/redis/data:/data
+      - /opt/redis/logs:/logs
+      - /opt/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    networks:
+      - default
+
+networks:
+  default:
+    name: bridge-default
+    driver: bridge
+    external: true

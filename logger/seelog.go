@@ -10,8 +10,7 @@ import (
 )
 
 // loggerSeelog .
-type loggerSeelog struct {
-}
+type loggerSeelog struct{}
 
 // NewSeelog .
 func NewSeelog() {

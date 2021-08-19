@@ -3,6 +3,7 @@ package logger
 import (
 	"os"
 	"os/signal"
+	"sync"
 
 	"library"
 
@@ -10,20 +11,35 @@ import (
 )
 
 // loggerSeelog .
-type loggerSeelog struct{}
+type loggerSeelog struct {
+	once sync.Once
+	opts *Options
+}
 
-// NewSeelog .
-func NewSeelog() {
+// UseSeelog .
+func UseSeelog(opts ...Option) {
+	var options = new(Options)
+	for _, opt := range opts {
+		opt(options)
+	}
+
 	see := new(loggerSeelog)
+	see.opts = options
 	see.configure()
 
-	// init logger
 	log = see
 }
 
 // configure .
 func (log *loggerSeelog) configure() error {
-	logger, _ := seelog.LoggerFromConfigAsString(`
+	if log.opts.Filename == "" {
+		log.opts.Filename = DefaultFilename
+	}
+	if log.opts.DateFormat == "" {
+		log.opts.DateFormat = DefaultDateFormat
+	}
+
+	logger, _ := seelog.LoggerFromConfigAsBytes([]byte(`
 			<?xml version="1.0" encoding="utf-8" ?>
 			<seelog levels="trace,debug,info,warn,error,critical">
 				<outputs formatid="main">
@@ -42,7 +58,7 @@ func (log *loggerSeelog) configure() error {
 					<filter levels="error,critical">
 						<console formatid="error"/>
 					</filter>
-					<rollingfile formatid="main" type="date" filename="./log/log.log" datepattern="2006-01-02" maxrolls="30" namemode="prefix"/>
+					<rollingfile formatid="main" type="date" filename="` + log.opts.Filename + `" datepattern="2006-01-02" maxrolls="30" namemode="prefix"/>
 				</outputs>
 				<formats>
 					<format id="main"  format="[%Date(2006-01-02 15:04:05.000)][%LEV] %Func %File:%Line ==&gt; %Msg%n"/>
@@ -50,11 +66,11 @@ func (log *loggerSeelog) configure() error {
 					<format id="debug" format="%EscM(36)[%Date(2006-01-02 15:04:05.000)][%LEV] %Func %File:%Line ==&gt; %Msg%n%EscM(0)"/>
 					<format id="error" format="%EscM(31)[%Date(2006-01-02 15:04:05.000)][%LEV] %Func %File:%Line ==&gt; %Msg%n%EscM(0)"/>
 				</formats>
-			</seelog>`)
-	logger.SetAdditionalStackDepth(1)
-	seelog.UseLogger(logger)
+			</seelog>`))
+	logger.SetAdditionalStackDepth(2)
+	seelog.ReplaceLogger(logger)
 
-	log.flush()
+	go log.flush()
 	return nil
 }
 
@@ -118,12 +134,6 @@ func (log *loggerSeelog) Fatalf(format string, params ...interface{}) {
 	seelog.Criticalf(format, params...)
 }
 
-// Log .
-func (log *loggerSeelog) Log(v ...interface{}) error {
-	seelog.Info(v...)
-	return nil
-}
-
 // String .
 func (log *loggerSeelog) String() string {
 	return "seelog"
@@ -131,10 +141,10 @@ func (log *loggerSeelog) String() string {
 
 // flush .
 func (log *loggerSeelog) flush() {
-	go func() {
+	log.once.Do(func() {
 		s := make(chan os.Signal)
 		signal.Notify(s, library.Shutdown()...)
 		<-s
 		seelog.Flush()
-	}()
+	})
 }

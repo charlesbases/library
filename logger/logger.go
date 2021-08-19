@@ -15,7 +15,6 @@ type logger interface {
 	Errorf(format string, params ...interface{})
 	Fatal(v ...interface{})
 	Fatalf(format string, params ...interface{})
-	Log(v ...interface{}) error
 	String() string
 }
 

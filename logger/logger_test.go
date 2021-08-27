@@ -15,3 +15,12 @@ func TestSeelog(t *testing.T) {
 
 	<-time.NewTicker(time.Second).C
 }
+
+func TestZap(t *testing.T) {
+	UseZap()
+
+	Trace("trace")
+	Debug("debug")
+	Info("info")
+	Error("error")
+}

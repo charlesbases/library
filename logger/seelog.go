@@ -31,7 +31,7 @@ func UseSeelog(opts ...Option) {
 }
 
 // configure .
-func (log *loggerSeelog) configure() error {
+func (log *loggerSeelog) configure() {
 	if log.opts.Filename == "" {
 		log.opts.Filename = DefaultFilename
 	}
@@ -71,7 +71,6 @@ func (log *loggerSeelog) configure() error {
 	seelog.ReplaceLogger(logger)
 
 	go log.flush()
-	return nil
 }
 
 // Trace .

@@ -13,7 +13,7 @@ services:
 #      MYSQL_ROOT_PASSWORD: 123456
       MYSQL_ALLOW_EMPTY_PASSWORD: true
     ports:
-      - 3306:3306
+      - "${MYSQL_PORT:-3306}:3306"
     volumes:
       - /opt/mysql/data:/var/lib/mysql
       - /opt/mysql/conf.d:/etc/mysql/conf.d

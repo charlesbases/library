@@ -9,7 +9,7 @@ services:
     tty: true
     command: mongod --auth --bind_ip_all --port=27017 --dbpath=/data/db --logpath=/var/log/mongo.log --wiredTigerCacheSizeGB=8
     ports:
-      - 27017:27017
+      - "${MONGO_PORT:-27017}:27017"
     environment:
       TZ: Asia/Shanghai
       MONGO_INITDB_DATABASE: admin

@@ -24,6 +24,6 @@ func (*Marshaler) Unmarshal(data []byte, v interface{}) error {
 }
 
 // String .
-func (*Marshaler) String() string {
-	return "proto"
+func (*Marshaler) String() codec.MarshalerType {
+	return codec.MarshalerType_Proto
 }

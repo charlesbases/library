@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"library/logger"
+	"library/log"
 
 	"github.com/go-redis/redis/v8"
 
@@ -34,7 +34,7 @@ func NewStore(opts ...store.Option) store.Store {
 	s.options = options
 
 	if err := s.configure(); err != nil {
-		logger.Fatal("redis connect error: ", err)
+		log.Fatal("redis connect error: ", err)
 	}
 
 	return s

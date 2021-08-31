@@ -1,4 +1,4 @@
-package logger
+package log
 
 import (
 	"os"
@@ -10,8 +10,8 @@ import (
 	"github.com/cihub/seelog"
 )
 
-// loggerSeelog .
-type loggerSeelog struct {
+// logSeelog .
+type logSeelog struct {
 	once sync.Once
 	opts *Options
 }
@@ -23,7 +23,7 @@ func UseSeelog(opts ...Option) {
 		opt(options)
 	}
 
-	see := new(loggerSeelog)
+	see := new(logSeelog)
 	see.opts = options
 	see.configure()
 
@@ -31,7 +31,7 @@ func UseSeelog(opts ...Option) {
 }
 
 // configure .
-func (log *loggerSeelog) configure() {
+func (log *logSeelog) configure() {
 	if log.opts.Filename == "" {
 		log.opts.Filename = DefaultFilename
 	}
@@ -74,72 +74,72 @@ func (log *loggerSeelog) configure() {
 }
 
 // Trace .
-func (log *loggerSeelog) Trace(v ...interface{}) {
+func (log *logSeelog) Trace(v ...interface{}) {
 	seelog.Trace(v...)
 }
 
 // Tracef .
-func (log *loggerSeelog) Tracef(format string, params ...interface{}) {
+func (log *logSeelog) Tracef(format string, params ...interface{}) {
 	seelog.Tracef(format, params...)
 }
 
 // Debug .
-func (log *loggerSeelog) Debug(v ...interface{}) {
+func (log *logSeelog) Debug(v ...interface{}) {
 	seelog.Debug(v...)
 }
 
 // Debugf .
-func (log *loggerSeelog) Debugf(format string, params ...interface{}) {
+func (log *logSeelog) Debugf(format string, params ...interface{}) {
 	seelog.Debugf(format, params...)
 }
 
 // Info .
-func (log *loggerSeelog) Info(v ...interface{}) {
+func (log *logSeelog) Info(v ...interface{}) {
 	seelog.Info(v...)
 }
 
 // Infof .
-func (log *loggerSeelog) Infof(format string, params ...interface{}) {
+func (log *logSeelog) Infof(format string, params ...interface{}) {
 	seelog.Infof(format, params...)
 }
 
 // Warn .
-func (log *loggerSeelog) Warn(v ...interface{}) {
+func (log *logSeelog) Warn(v ...interface{}) {
 	seelog.Warn(v...)
 }
 
 // Warnf .
-func (log *loggerSeelog) Warnf(format string, params ...interface{}) {
+func (log *logSeelog) Warnf(format string, params ...interface{}) {
 	seelog.Warnf(format, params...)
 }
 
 // Error .
-func (log *loggerSeelog) Error(v ...interface{}) {
+func (log *logSeelog) Error(v ...interface{}) {
 	seelog.Error(v...)
 }
 
 // Errorf .
-func (log *loggerSeelog) Errorf(format string, params ...interface{}) {
+func (log *logSeelog) Errorf(format string, params ...interface{}) {
 	seelog.Errorf(format, params...)
 }
 
 // Fatal .
-func (log *loggerSeelog) Fatal(v ...interface{}) {
+func (log *logSeelog) Fatal(v ...interface{}) {
 	seelog.Critical(v...)
 }
 
 // Fatalf .
-func (log *loggerSeelog) Fatalf(format string, params ...interface{}) {
+func (log *logSeelog) Fatalf(format string, params ...interface{}) {
 	seelog.Criticalf(format, params...)
 }
 
 // String .
-func (log *loggerSeelog) String() string {
+func (log *logSeelog) String() string {
 	return "seelog"
 }
 
 // flush .
-func (log *loggerSeelog) flush() {
+func (log *logSeelog) flush() {
 	log.once.Do(func() {
 		s := make(chan os.Signal)
 		signal.Notify(s, library.Shutdown()...)

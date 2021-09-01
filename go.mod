@@ -9,4 +9,5 @@ require (
 	github.com/nats-io/nats-server/v2 v2.4.0 // indirect
 	github.com/nats-io/nats.go v1.12.0
 	github.com/onsi/gomega v1.14.0 // indirect
+	go.uber.org/zap v1.19.0
 )

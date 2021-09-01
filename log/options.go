@@ -7,10 +7,10 @@ const (
 	DefaultFilename = "./log/log.log"
 )
 
-type level int8
+type Level int8
 
 const (
-	LEVEL_TRACE level = iota
+	LEVEL_TRACE Level = iota
 	LEVEL_DEBUG
 	LEVEL_INFO
 	LEVEL_WARN
@@ -18,14 +18,34 @@ const (
 	LEVEL_FATAL
 )
 
+// string .
+func (l Level) String() string {
+	switch l {
+	case LEVEL_TRACE:
+		return "TRC"
+	case LEVEL_DEBUG:
+		return "DBG"
+	case LEVEL_INFO:
+		return "INF"
+	case LEVEL_WARN:
+		return "WRN"
+	case LEVEL_ERROR:
+		return "ERR"
+	case LEVEL_FATAL:
+		return "FAT"
+	default:
+		return "UNK"
+	}
+}
+
 // Options .
 type Options struct {
 	Service    string // 服务名
 	Filename   string // 日志文件
 	DateFormat string // 日期格式
 
-	LowestLevel  level // 日志最低等级. default: LEVEL_TRACE
-	HighestLevel level // 日志最高等级. default: LEVEL_FATAL
+	LowestLevel  Level // 日志最低等级. default: LEVEL_TRACE
+	HighestLevel Level // 日志最高等级. default: LEVEL_FATAL
 }
 
 type Option func(o *Options)
@@ -52,14 +72,14 @@ func WithDateFormat(layout string) Option {
 }
 
 // WithLowestLevel .
-func WithLowestLevel(level level) Option {
+func WithLowestLevel(level Level) Option {
 	return func(o *Options) {
 		o.LowestLevel = level
 	}
 }
 
 // WithHighestLevel .
-func WithHighestLevel(level level) Option {
+func WithHighestLevel(level Level) Option {
 	return func(o *Options) {
 		o.HighestLevel = level
 	}

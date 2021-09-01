@@ -2,7 +2,6 @@ package log
 
 import (
 	"testing"
-	"time"
 )
 
 func TestSeelog(t *testing.T) {
@@ -11,16 +10,16 @@ func TestSeelog(t *testing.T) {
 	Trace("trace")
 	Debug("debug")
 	Info("info")
+	Warn("warn")
 	Error("error")
-
-	<-time.NewTicker(time.Second).C
 }
 
 func TestZap(t *testing.T) {
-	UseZap()
+	UseZap(WithService("test"))
 
 	Trace("trace")
 	Debug("debug")
 	Info("info")
+	Warn("warn")
 	Error("error")
 }

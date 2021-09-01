@@ -18,20 +18,20 @@ type logSeelog struct {
 
 // UseSeelog .
 func UseSeelog(opts ...Option) {
+	logger := new(logSeelog)
+	logger.configure(opts...)
+
+	log = logger
+}
+
+// configure .
+func (log *logSeelog) configure(opts ...Option) {
 	var options = new(Options)
 	for _, opt := range opts {
 		opt(options)
 	}
+	log.opts = options
 
-	see := new(logSeelog)
-	see.opts = options
-	see.configure()
-
-	log = see
-}
-
-// configure .
-func (log *logSeelog) configure() {
 	if log.opts.Filename == "" {
 		log.opts.Filename = DefaultFilename
 	}

@@ -53,7 +53,7 @@ type Option func(o *Options)
 // WithService .
 func WithService(service string) Option {
 	return func(o *Options) {
-		o.Service = service
+		o.Service = "[" + service + "]"
 	}
 }
 

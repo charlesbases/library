@@ -32,6 +32,9 @@ func (log *logSeelog) configure(opts ...Option) {
 	}
 	log.opts = options
 
+	if log.opts.Service != "" {
+		log.opts.Service = " " + log.opts.Service
+	}
 	if log.opts.Filename == "" {
 		log.opts.Filename = DefaultFilename
 	}
@@ -61,10 +64,10 @@ func (log *logSeelog) configure(opts ...Option) {
 					<rollingfile formatid="main" type="date" filename="` + log.opts.Filename + `" datepattern="2006-01-02" maxrolls="30" namemode="prefix"/>
 				</outputs>
 				<formats>
-					<format id="main"  format="[%Date(2006-01-02 15:04:05.000)][%LEV] %Func %File:%Line ==&gt; %Msg%n"/>
-					<format id="info"  format="%EscM(32)[%Date(2006-01-02 15:04:05.000)][%LEV] %Func %File:%Line ==&gt; %Msg%n%EscM(0)"/>
-					<format id="debug" format="%EscM(36)[%Date(2006-01-02 15:04:05.000)][%LEV] %Func %File:%Line ==&gt; %Msg%n%EscM(0)"/>
-					<format id="error" format="%EscM(31)[%Date(2006-01-02 15:04:05.000)][%LEV] %Func %File:%Line ==&gt; %Msg%n%EscM(0)"/>
+					<format id="main"  format="[%Date(2006-01-02 15:04:05.000)] [%LEV]` + log.opts.Service + ` %Func %File:%Line ==&gt; %Msg%n"/>
+					<format id="info"  format="%EscM(32)[%Date(2006-01-02 15:04:05.000)] [%LEV]` + log.opts.Service + ` %Func %File:%Line ==&gt; %Msg%n%EscM(0)"/>
+					<format id="debug" format="%EscM(36)[%Date(2006-01-02 15:04:05.000)] [%LEV]` + log.opts.Service + ` %Func %File:%Line ==&gt; %Msg%n%EscM(0)"/>
+					<format id="error" format="%EscM(31)[%Date(2006-01-02 15:04:05.000)] [%LEV]` + log.opts.Service + ` %Func %File:%Line ==&gt; %Msg%n%EscM(0)"/>
 				</formats>
 			</seelog>`))
 	logger.SetAdditionalStackDepth(2)

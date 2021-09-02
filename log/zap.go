@@ -16,18 +16,16 @@ import (
 // logZap .
 type logZap struct {
 	opts *Options
-
-	sugared *zap.SugaredLogger
-
 	once sync.Once
+
+	logger *zap.SugaredLogger
 }
 
-// UseZap .
-func UseZap(opts ...Option) {
+// NewZap .
+func NewZap(opts ...Option) logger {
 	logger := new(logZap)
 	logger.configure(opts...)
-
-	log = logger
+	return logger
 }
 
 // configure .
@@ -38,6 +36,9 @@ func (log *logZap) configure(opts ...Option) {
 	}
 	log.opts = options
 
+	if log.opts.Skip == 0 {
+		log.opts.Skip = DefaultSkip
+	}
 	if log.opts.Filename == "" {
 		log.opts.Filename = DefaultFilename
 	}
@@ -61,9 +62,9 @@ func (log *logZap) configure(opts ...Option) {
 	logger := zap.New(
 		zapcore.NewTee(zapcore.NewCore(encoder, zapcore.AddSync(os.Stdout), console)),
 		zap.AddCaller(),
-		zap.AddCallerSkip(2),
+		zap.AddCallerSkip(log.opts.Skip),
 	)
-	log.sugared = logger.Named(log.opts.Service).Sugar()
+	log.logger = logger.Named("[" + log.opts.Service + "]").Sugar()
 
 	go log.flush()
 }
@@ -102,57 +103,57 @@ func (log *logZap) Tracef(format string, params ...interface{}) {
 
 // Debug .
 func (log *logZap) Debug(v ...interface{}) {
-	log.sugared.Debug(v...)
+	log.logger.Debug(v...)
 }
 
 // Debugf .
 func (log *logZap) Debugf(format string, params ...interface{}) {
-	log.sugared.Debugf(format, params...)
+	log.logger.Debugf(format, params...)
 }
 
 // Info .
 func (log *logZap) Info(v ...interface{}) {
-	log.sugared.Info(v...)
+	log.logger.Info(v...)
 }
 
 // Infof .
 func (log *logZap) Infof(format string, params ...interface{}) {
-	log.sugared.Infof(format, params...)
+	log.logger.Infof(format, params...)
 }
 
 // Warn .
 func (log *logZap) Warn(v ...interface{}) {
-	log.sugared.Warn(v...)
+	log.logger.Warn(v...)
 }
 
 // Warnf .
 func (log *logZap) Warnf(format string, params ...interface{}) {
-	log.sugared.Warnf(format, params...)
+	log.logger.Warnf(format, params...)
 }
 
 // Error .
 func (log *logZap) Error(v ...interface{}) {
-	log.sugared.Error(v...)
+	log.logger.Error(v...)
 }
 
 // Errorf .
 func (log *logZap) Errorf(format string, params ...interface{}) {
-	log.sugared.Errorf(format, params...)
+	log.logger.Errorf(format, params...)
 }
 
 // Fatal .
 func (log *logZap) Fatal(v ...interface{}) {
-	log.sugared.Fatal(v...)
+	log.logger.Fatal(v...)
 }
 
 // Fatalf .
 func (log *logZap) Fatalf(format string, params ...interface{}) {
-	log.sugared.Fatalf(format, params...)
+	log.logger.Fatalf(format, params...)
 }
 
 // String .
 func (log *logZap) String() string {
-	return "log.sugared"
+	return "zap"
 }
 
 // flush .
@@ -161,6 +162,6 @@ func (log *logZap) flush() {
 		s := make(chan os.Signal)
 		signal.Notify(s, library.Shutdown()...)
 		<-s
-		log.sugared.Sync()
+		log.logger.Sync()
 	})
 }

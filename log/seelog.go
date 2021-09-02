@@ -16,12 +16,11 @@ type logSeelog struct {
 	opts *Options
 }
 
-// UseSeelog .
-func UseSeelog(opts ...Option) {
+// NewSeelog .
+func NewSeelog(opts ...Option) logger {
 	logger := new(logSeelog)
 	logger.configure(opts...)
-
-	log = logger
+	return logger
 }
 
 // configure .
@@ -32,8 +31,11 @@ func (log *logSeelog) configure(opts ...Option) {
 	}
 	log.opts = options
 
+	if log.opts.Skip == 0 {
+		log.opts.Skip = DefaultSkip
+	}
 	if log.opts.Service != "" {
-		log.opts.Service = " " + log.opts.Service
+		log.opts.Service = " " + "[" + log.opts.Service + "]"
 	}
 	if log.opts.Filename == "" {
 		log.opts.Filename = DefaultFilename
@@ -70,7 +72,7 @@ func (log *logSeelog) configure(opts ...Option) {
 					<format id="error" format="%EscM(31)[%Date(2006-01-02 15:04:05.000)] [%LEV]` + log.opts.Service + ` %Func %File:%Line ==&gt; %Msg%n%EscM(0)"/>
 				</formats>
 			</seelog>`))
-	logger.SetAdditionalStackDepth(2)
+	logger.SetAdditionalStackDepth(log.opts.Skip)
 	seelog.ReplaceLogger(logger)
 
 	go log.flush()

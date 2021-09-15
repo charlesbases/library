@@ -71,24 +71,27 @@ func (log *logZap) configure(opts ...Option) {
 
 // color .
 func (log *logZap) color(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+	var level Level
 	switch l {
 	case zapcore.DebugLevel:
-		enc.AppendString(_colorString[LEVEL_DEBUG])
+		level = LEVEL_DEBUG
 	case zapcore.InfoLevel:
-		enc.AppendString(_colorString[LEVEL_INFO])
+		level = LEVEL_INFO
 	case zapcore.WarnLevel:
-		enc.AppendString(_colorString[LEVEL_WARN])
+		level = LEVEL_WARN
 	case zapcore.ErrorLevel:
-		enc.AppendString(_colorString[LEVEL_ERROR])
+		level = LEVEL_ERROR
 	case zapcore.DPanicLevel:
-		enc.AppendString(_colorString[LEVEL_FATAL])
+		level = LEVEL_FATAL
 	case zapcore.PanicLevel:
-		enc.AppendString(_colorString[LEVEL_FATAL])
+		level = LEVEL_FATAL
 	case zapcore.FatalLevel:
-		enc.AppendString(_colorString[LEVEL_FATAL])
+		level = LEVEL_FATAL
 	default:
-		enc.AppendString(_colorString[LEVEL_TRACE])
+		level = LEVEL_TRACE
 	}
+
+	enc.AppendString(level.Sprint(level.short()))
 }
 
 // Trace .

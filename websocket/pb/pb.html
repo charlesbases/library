@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>pb</title>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <style type="text/css">
+      html {
+        line-height: 140%;
+      }
+      body {
+        margin: 10px;
+      }
+      table {
+        border-spacing: 0;
+        border-padding: 0;
+        border-collapse: collapse;
+      }
+      td, th {
+        padding: 0;
+        spacing: 0;
+      }
+      .codeblock {
+        background-color: #F5F5F5;
+        padding-left: 5px;
+        padding-bottom: 1px;
+        text-align: left;
+        border: 1px solid #CBCBCB;
+      }
+      .pure-table {
+        border-collapse: collapse;
+        border-spacing: 0;
+        empty-cells: show;
+        border: 1px solid #CBCBCB;
+      }
+      .pure-table td {
+        background-color: transparent;
+        border-left: 1px solid #cbcbcb;
+        border-width: 0 0 0 1px;
+        font-size: inherit;
+        margin: 0;
+        overflow: visible;
+        padding: .5em 1em;
+      }
+      .pure-table th {
+        border-left: 1px solid #CBCBCB;
+        border-width: 0 0 0 1px;
+        font-size: inherit;
+        margin: 0;
+        overflow: visible;
+        padding: .5em 1em;
+      }
+      .pure-table thead {
+        background-color: #DCDCDC;
+        color: #000000;
+        text-align: center;
+        vertical-align: bottom;
+      }
+      .pure-table-odd td {
+        background-color: #F1F1F1;
+      }
+      .arrow {
+        border: 9px solid transparent;
+        border-bottom-color: #3DA0DB;
+        width: 0px;
+        height: 0px;
+        top:0px
+      }
+      .stick {
+        width: 8px;
+        height: 14px;
+        border-radius: 1px;
+        background-color: #3DA0DB;
+        top:15px;
+      }
+      #back_top div {
+        position: absolute;
+        margin: auto;
+        right: 0px;
+        left: 0px;
+      }
+      #back_top {
+        background-color: #DDDDDD;
+        height: 38px;
+        width: 38px;
+        border-radius: 3px;
+        display: block;
+        cursor: pointer;
+        position: fixed;
+        right: 50px;
+        bottom: 100px;
+        display: none;
+      }
+      #header {
+        background-color: #000000;
+        color: #DCDCDC;
+        text-align: center;
+        padding: 5px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="article"></div>
+    <div id="back_top">
+      <div class="arrow"></div>
+      <div class="stick"></div>
+    </div>
+    <script src="http://cdn.staticfile.org/jquery/1.11.1-rc2/jquery.min.js"></script>
+    <script type="text/javascript">
+        $(function(){
+          $(window).scroll(function(){
+            var scrollt = document.documentElement.scrollTop + document.body.scrollTop;
+            if( scrollt > 200 ){
+              $("#back_top").fadeIn(400);
+            }else{
+              $("#back_top").stop().fadeOut(400);
+            }
+          });
+          $("#back_top").click(function(){
+            $("html,body").animate({scrollTop:"0px"},200);
+          });
+        });
+    </script>
+
+    
+    <div id="header"><h1>pb</h1></div>
+    <code>
+    <h1>导航</h1>
+    <ul>
+      <li><a href="#srv">服务</a></li>
+      <li><a href="#msg">结构</a></li>
+      <li><a href="#enu">枚举</a></li>
+    </ul>
+    <h1><a id="srv">服务</a></h1>
+    <ul>
+    
+    </ul>
+    <HR>
+    <h1>函数</h1>
+    
+
+    <h1><a id="msg">结构</a></h1>
+    <table class="pure-table">
+      <thead>
+        <tr>
+          <td>类型</td>
+          <td>描述</td>
+        </tr>
+      </thead>
+      <tbody>
+        
+      </tbody>
+    </table>
+
+    
+    
+
+    <h1><a id="enu">枚举</a></h1>
+    <ul>
+      <li><h4><a id="Method">Method</a></h4></li>
+      <table class="pure-table">
+        <thead>
+          <tr>
+            <td>键</td>
+            <td>值</td>
+            <td>描述</td>
+          </tr>
+        </thead>
+        <tbody>
+          <tr >
+            <td>UNKNOWN</td>
+            <td>0</td>
+            <td>Method:  UNKNOWN</td>
+          </tr>
+          <tr class="pure-table-odd">
+            <td>PING</td>
+            <td>1</td>
+            <td>Method:  PING 心跳</td>
+          </tr>
+          <tr >
+            <td>SUBSCRIBE</td>
+            <td>2</td>
+            <td>Method:  SUBSCRIBE 消息订阅</td>
+          </tr>
+          <tr class="pure-table-odd">
+            <td>UNSUBSCRIBE</td>
+            <td>3</td>
+            <td>Method:  UNSUBSCRIBE 取消订阅</td>
+          </tr>
+          <tr >
+            <td>BROADCAST</td>
+            <td>4</td>
+            <td>Method:  BROADCAST 广播</td>
+          </tr>
+          <tr class="pure-table-odd">
+            <td>DISCONNECT</td>
+            <td>5</td>
+            <td>Method:  DISCONNECT 断开</td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </ul>
+    
+    </code>
+  </body>
+</html>

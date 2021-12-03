@@ -3,17 +3,27 @@ package encoder
 import (
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestMD5(t *testing.T) {
 	encoder := NewMD5()
-	fmt.Println(encoder.Encode("中国"))
+	fmt.Println(encoder.Encode("我爱你，中国！"))
 }
 
 func TestHMAC(t *testing.T) {
-	encoder := NewHMAC(WithSecretKey([]byte("dahsjdaydasd")))
-	data := encoder.Encode("中国")
-	fmt.Println(data)
+	encoder := NewHMAC(WithSecretKey([]byte("YDGHejHB/SDJCAC4ibrt7g==")))
+	fmt.Println(encoder.Encode("中国"))
+
+	var loop int = 1e8
+
+	{
+		var start = time.Now()
+		for i := 0; i < loop; i++ {
+			encoder.Encode("中国")
+		}
+		fmt.Println(">>>", time.Since(start)) // 0.74s
+	}
 }
 
 var (

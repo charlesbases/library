@@ -4,11 +4,16 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"hash"
+	"sync"
 )
 
 // encHMAC .
 type encHMAC struct {
 	opts *options
+	hash hash.Hash
+
+	lk sync.Mutex
 }
 
 // NewHMAC .
@@ -17,16 +22,20 @@ func NewHMAC(opts ...option) encoder {
 	for _, opt := range opts {
 		opt(options)
 	}
-	return &encHMAC{opts: options}
+
+	return &encHMAC{opts: options, hash: hmac.New(sha256.New, options.secretKey)}
 }
 
 func (enc *encHMAC) Encode(text string) string {
-	hash := hmac.New(sha256.New, enc.opts.secretKey)
-	hash.Write([]byte(text))
-	return base64.StdEncoding.EncodeToString(hash.Sum(nil))
+	enc.lk.Lock()
+	enc.hash.Write([]byte(text))
+	res := base64.StdEncoding.EncodeToString(enc.hash.Sum(nil))
+	enc.hash.Reset()
+	enc.lk.Unlock()
+	return res
 }
 
-func (enc *encHMAC) Decode(text string) string {
+func (enc *encHMAC) Decode(_ string) string {
 	return ""
 }
 

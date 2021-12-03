@@ -13,7 +13,7 @@ type Broker interface {
 
 type Header map[string]string
 
-type Handler func(event Event)
+type Handler func(event Event) error
 
 // Message .
 type Message struct {

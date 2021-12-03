@@ -8,12 +8,12 @@ import (
 	"library/broker"
 )
 
-var handler = func(event broker.Event) {
+var handler = func(event broker.Event) error {
 	date := new(Date)
 	event.Unmarshal(date)
 
-	fmt.Println(event.Header())
-	fmt.Println(fmt.Sprintf(`%+v`, date))
+	fmt.Println("receive -->", date.Format)
+	return nil
 }
 
 // Date .
@@ -23,7 +23,7 @@ type Date struct {
 
 // NewDate .
 func NewDate() *Date {
-	return &Date{Format: time.Now().Format("2006-01-02 15:04:05")}
+	return &Date{Format: time.Now().Format("2006-01-02 15:04:05.000")}
 }
 
 func Test(t *testing.T) {
@@ -35,13 +35,16 @@ func Test(t *testing.T) {
 	for {
 		select {
 		case <-time.NewTicker(time.Second * 3).C:
+			date := NewDate()
+
 			err := nats.Publish("date", &broker.Message{
-				Data: NewDate(),
+				Data: date,
 			})
 			if err != nil {
 				fmt.Println("nats: publish error: ", err)
 				break
 			}
+			fmt.Println("publish -->", date.Format)
 		}
 	}
 }

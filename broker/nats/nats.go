@@ -20,8 +20,7 @@ type natsBroker struct {
 	conn  *nats.Conn
 	nopts *nats.Options
 
-	drain  bool
-	closed chan (error)
+	drain bool
 
 	once sync.Once
 	lock sync.RWMutex
@@ -41,7 +40,7 @@ func NewBroker(opts ...broker.Option) broker.Broker {
 }
 
 // configura .
-func (n *natsBroker) configura(opts ...broker.Option) {
+func (n *natsBroker) configura(opts ...broker.Option) error {
 	for _, opt := range opts {
 		opt(n.opts)
 	}
@@ -78,27 +77,27 @@ func (n *natsBroker) configura(opts ...broker.Option) {
 	}
 
 	n.drain = true
-	n.closed = make(chan error)
 
 	n.nopts.ClosedCB = n.onClose
 	n.nopts.AsyncErrorCB = n.onAsyncError
+
+	return nil
 }
 
 // onClose .
-func (n *natsBroker) onClose(conn *nats.Conn) {
-	n.closed <- nil
+func (n *natsBroker) onClose(_ *nats.Conn) {
+	// Do Something
 }
 
 // onAsyncError .
 func (n *natsBroker) onAsyncError(conn *nats.Conn, sub *nats.Subscription, err error) {
 	if err == nats.ErrDrainTimeout {
-		n.closed <- err
+		// Do Something
 	}
 }
 
 func (n *natsBroker) Init(opts ...broker.Option) error {
-	n.configura(opts...)
-	return nil
+	return n.configura(opts...)
 }
 
 func (n *natsBroker) Options() *broker.Options {
@@ -117,7 +116,6 @@ func (n *natsBroker) Address() string {
 
 func (n *natsBroker) Connect() error {
 	n.lock.Lock()
-	defer n.lock.Unlock()
 
 	status := nats.CLOSED
 	if n.conn != nil {
@@ -126,30 +124,35 @@ func (n *natsBroker) Connect() error {
 
 	switch status {
 	case nats.CONNECTED, nats.RECONNECTING, nats.CONNECTING:
-		return nil
 	default:
 		if conn, err := n.nopts.Connect(); err != nil {
+			n.lock.Unlock()
 			return err
 		} else {
 			n.conn = conn
 		}
-		return nil
 	}
+
+	n.lock.Unlock()
+	return nil
 }
 
 func (n *natsBroker) Disconnect() error {
 	n.lock.RLock()
-	defer n.lock.RUnlock()
-
 	if n.drain {
 		n.conn.Drain()
-		return <-n.closed
+	} else {
+		n.conn.Close()
 	}
-	n.conn.Close()
+	n.lock.RUnlock()
 	return nil
 }
 
 func (n *natsBroker) Publish(topic string, message *broker.Message, opts ...broker.PublishOption) error {
+	if n.conn == nil {
+		return nats.ErrInvalidConnection
+	}
+
 	if message.Header == nil {
 		message.Header = broker.NewHander()
 	}

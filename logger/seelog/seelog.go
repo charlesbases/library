@@ -39,9 +39,6 @@ func (l *logger) configure(opts ...Option) {
 	if l.opts.Filename == "" {
 		l.opts.Filename = DefaultFilename
 	}
-	if l.opts.DateFormat == "" {
-		l.opts.DateFormat = DefaultDateFormat
-	}
 
 	logger, _ := seelog.LoggerFromConfigAsBytes([]byte(`
 			<?xml version="1.0" encoding="utf-8" ?>
@@ -66,9 +63,9 @@ func (l *logger) configure(opts ...Option) {
 				</outputs>
 				<formats>
 					<format id="main"  format="[%Date(2006-01-02 15:04:05.000)] [%LEV]` + l.opts.Service + ` %Func %File:%Line ==&gt; %Msg%n"/>
-					<format id="info"  format="%EscM(` + LEVEL_INF.color() + `)[%Date(2006-01-02 15:04:05.000)] [%LEV]` + l.opts.Service + ` %Func %File:%Line ==&gt; %Msg%n%EscM(0)"/>
-					<format id="debug" format="%EscM(` + LEVEL_DBG.color() + `)[%Date(2006-01-02 15:04:05.000)] [%LEV]` + l.opts.Service + ` %Func %File:%Line ==&gt; %Msg%n%EscM(0)"/>
-					<format id="error" format="%EscM(` + LEVEL_ERR.color() + `)[%Date(2006-01-02 15:04:05.000)] [%LEV]` + l.opts.Service + ` %Func %File:%Line ==&gt; %Msg%n%EscM(0)"/>
+					<format id="info"  format="%EscM(32)[%Date(2006-01-02 15:04:05.000)] [%LEV]` + l.opts.Service + ` %Func %File:%Line ==&gt; %Msg%n%EscM(0)"/>
+					<format id="debug" format="%EscM(35)[%Date(2006-01-02 15:04:05.000)] [%LEV]` + l.opts.Service + ` %Func %File:%Line ==&gt; %Msg%n%EscM(0)"/>
+					<format id="error" format="%EscM(31)[%Date(2006-01-02 15:04:05.000)] [%LEV]` + l.opts.Service + ` %Func %File:%Line ==&gt; %Msg%n%EscM(0)"/>
 				</formats>
 			</seelog>`))
 	logger.SetAdditionalStackDepth(l.opts.Skip)

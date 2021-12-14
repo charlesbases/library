@@ -5,10 +5,10 @@ import (
 	"strconv"
 )
 
-type level int8
+type Level int8
 
 const (
-	LEVEL_TRC level = iota
+	LEVEL_TRC Level = iota
 	LEVEL_DBG
 	LEVEL_INF
 	LEVEL_WRN
@@ -34,7 +34,7 @@ const (
 	white
 )
 
-var colors = map[level]attribute{
+var colors = map[Level]attribute{
 	LEVEL_TRC: yellow,
 	LEVEL_DBG: magenta,
 	LEVEL_INF: green,
@@ -43,13 +43,13 @@ var colors = map[level]attribute{
 	LEVEL_FAT: red,
 }
 
-var shortNames = map[level]string{
-	LEVEL_TRC: "TRC",
-	LEVEL_DBG: "DBG",
-	LEVEL_INF: "INF",
-	LEVEL_WRN: "WRN",
-	LEVEL_ERR: "ERR",
-	LEVEL_FAT: "FAT",
+var shorts = map[Level]string{
+	LEVEL_TRC: "[TRC]",
+	LEVEL_DBG: "[DBG]",
+	LEVEL_INF: "[INF]",
+	LEVEL_WRN: "[WRN]",
+	LEVEL_ERR: "[ERR]",
+	LEVEL_FAT: "[FAT]",
 }
 
 // format .
@@ -73,8 +73,8 @@ func (c attribute) wrap(s string) string {
 }
 
 // short .
-func (l level) short() string {
-	if name, find := shortNames[l]; find {
+func (l Level) short() string {
+	if name, find := shorts[l]; find {
 		return name
 	} else {
 		return "UNK"
@@ -82,15 +82,20 @@ func (l level) short() string {
 }
 
 // color .
-func (l level) color() string {
+func (l Level) color() string {
 	if color, find := colors[l]; find {
 		return color.string()
 	}
 	return white.string()
 }
 
+// Short .
+func (l Level) Short() string {
+	return shorts[l]
+}
+
 // Sprint .
-func (l level) Sprint(data string) string {
+func (l Level) Sprint(data string) string {
 	if color, found := colors[l]; found {
 		return color.wrap(data)
 	}

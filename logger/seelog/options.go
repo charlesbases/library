@@ -11,9 +11,8 @@ const (
 
 // Options .
 type Options struct {
-	Service    string // 服务名
-	Filename   string // 日志文件
-	DateFormat string // 日期格式
+	Service  string // 服务名
+	Filename string // 日志文件
 
 	Skip int // 跳过的调用者数量. default: DefaultSkip
 }
@@ -38,12 +37,5 @@ func WithService(service string) Option {
 func WithFilename(filename string) Option {
 	return func(o *Options) {
 		o.Filename = filename
-	}
-}
-
-// WithDateFormat .
-func WithDateFormat(layout string) Option {
-	return func(o *Options) {
-		o.DateFormat = layout
 	}
 }

@@ -21,7 +21,7 @@ func Debug(v ...interface{}) {
 	base.Debug(v...)
 }
 
-//Debugf .
+// Debugf .
 func Debugf(format string, params ...interface{}) {
 	base.Debugf(format, params...)
 }

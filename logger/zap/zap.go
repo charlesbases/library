@@ -1,14 +1,11 @@
 package zap
 
 import (
-	"io"
 	"os"
 	"os/signal"
-	"time"
 
 	"library"
 
-	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
 	"go.uber.org/zap"
 	_ "go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -30,25 +27,15 @@ func New(opts ...Option) *logger {
 
 // configure .
 func (l *logger) configure(opts ...Option) {
-	var options = new(Options)
+	var options = defaultOption()
 	for _, opt := range opts {
 		opt(options)
 	}
 	l.opts = options
 
-	if l.opts.Skip == 0 {
-		l.opts.Skip = DefaultSkip
-	}
-	if l.opts.Filename == "" {
-		l.opts.Filename = DefaultFilename
-	}
-	if l.opts.DateFormat == "" {
-		l.opts.DateFormat = DefaultDateFormat
-	}
-
 	// 编码器
 	cfg := zap.NewProductionEncoderConfig()
-	cfg.EncodeTime = zapcore.TimeEncoderOfLayout("[" + l.opts.DateFormat + "]")
+	cfg.EncodeTime = zapcore.TimeEncoderOfLayout("[" + DefaultDateFormat + "]")
 	cfg.EncodeLevel = l.color
 	cfg.EncodeCaller = zapcore.ShortCallerEncoder
 	cfg.ConsoleSeparator = " "
@@ -61,8 +48,8 @@ func (l *logger) configure(opts ...Option) {
 
 	logger := zap.New(
 		zapcore.NewTee(
-			zapcore.NewCore(encoder, zapcore.AddSync(os.Stdout), level), // console
-			// zapcore.NewCore(encoder, zapcore.AddSync(l.writer()), level), // file
+			zapcore.NewCore(encoder, zapcore.AddSync(os.Stdout), level),                                                          // console
+			zapcore.NewCore(encoder, zapcore.AddSync(NewFileWriter(l.opts.FilePath, FileWriterWithTTL(l.opts.MaxRolls))), level), // file-writer
 		),
 		zap.AddCaller(),
 		zap.AddCallerSkip(l.opts.Skip),
@@ -81,24 +68,24 @@ func (l *logger) color(lv zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
 	var level level
 	switch lv {
 	case zapcore.DebugLevel:
-		level = LEVEL_DBG
+		level = level_debug
 	case zapcore.InfoLevel:
-		level = LEVEL_INF
+		level = level_info
 	case zapcore.WarnLevel:
-		level = LEVEL_WRN
+		level = level_warn
 	case zapcore.ErrorLevel:
-		level = LEVEL_ERR
+		level = level_error
 	case zapcore.DPanicLevel:
-		level = LEVEL_FAT
+		level = level_fatal
 	case zapcore.PanicLevel:
-		level = LEVEL_FAT
+		level = level_fatal
 	case zapcore.FatalLevel:
-		level = LEVEL_FAT
+		level = level_fatal
 	default:
-		level = LEVEL_TRC
+		level = level_trace
 	}
 
-	enc.AppendString(level.Sprint(level.short()))
+	enc.AppendString(level.sprint(level.short()))
 }
 
 // Trace .
@@ -159,20 +146,6 @@ func (l *logger) Fatal(v ...interface{}) {
 // Fatalf .
 func (l *logger) Fatalf(format string, params ...interface{}) {
 	l.logger.Fatalf(format, params...)
-}
-
-// writer .
-func (l *logger) writer() io.Writer {
-	clerk, err := rotatelogs.New(
-		l.opts.Filename,
-		rotatelogs.WithLinkName(l.opts.Filename),
-		rotatelogs.WithRotationTime(time.Hour*24),
-		rotatelogs.WithMaxAge(time.Hour*24*7),
-	)
-	if err != nil {
-		panic(err)
-	}
-	return clerk
 }
 
 // flush .

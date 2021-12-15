@@ -3,19 +3,32 @@ package zap
 const (
 	// DefaultSkip .
 	DefaultSkip = 1
+	// DefaultMaxRolls 日志保留时间
+	DefaultMaxRolls = 7
 	// DefaultDateFormat date format
 	DefaultDateFormat = "2006-01-02 15:04:05.000"
-	// DefaultFilename default file name
-	DefaultFilename = "./log.log"
+	// DefaultFilePath default file path
+	DefaultFilePath = "./log/log.log"
 )
 
 // Options .
 type Options struct {
-	Service    string // 服务名
-	Filename   string // 日志文件
-	DateFormat string // 日期格式
+	Service  string // 服务名
+	FilePath string // 日志文件
+	MaxRolls int    // 日志保留天数
 
-	Skip int // 跳过的调用者数量. default: DefaultSkip
+	ShowColor bool // 颜色显示
+	Skip      int  // 跳过的调用者数量. default: DefaultSkip
+}
+
+// defaultOption .
+func defaultOption() *Options {
+	return &Options{
+		FilePath:  DefaultFilePath,
+		MaxRolls:  DefaultMaxRolls,
+		ShowColor: false,
+		Skip:      DefaultSkip,
+	}
 }
 
 type Option func(o *Options)
@@ -27,6 +40,13 @@ func WithSkip(skip int) Option {
 	}
 }
 
+// WithColor .
+func WithColor() Option {
+	return func(o *Options) {
+		o.ShowColor = true
+	}
+}
+
 // WithService .
 func WithService(service string) Option {
 	return func(o *Options) {
@@ -34,16 +54,16 @@ func WithService(service string) Option {
 	}
 }
 
-// WithFilename .
-func WithFilename(filename string) Option {
+// WithFilePath .
+func WithFilePath(filename string) Option {
 	return func(o *Options) {
-		o.Filename = filename
+		o.FilePath = filename
 	}
 }
 
-// WithDateFormat .
-func WithDateFormat(layout string) Option {
+// WithMaxRolls .
+func WithMaxRolls(ttl int) Option {
 	return func(o *Options) {
-		o.DateFormat = layout
+		o.MaxRolls = ttl
 	}
 }

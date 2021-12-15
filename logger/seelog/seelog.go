@@ -3,6 +3,7 @@ package logger
 import (
 	"os"
 	"os/signal"
+	"strconv"
 
 	"library"
 
@@ -24,20 +25,14 @@ func New(opts ...Option) *logger {
 
 // configure .
 func (l *logger) configure(opts ...Option) {
-	var options = new(Options)
+	var options = defaultOption()
 	for _, opt := range opts {
 		opt(options)
 	}
 	l.opts = options
 
-	if l.opts.Skip == 0 {
-		l.opts.Skip = DefaultSkip
-	}
 	if l.opts.Service != "" {
 		l.opts.Service = " " + "[" + l.opts.Service + "]"
-	}
-	if l.opts.Filename == "" {
-		l.opts.Filename = DefaultFilename
 	}
 
 	logger, _ := seelog.LoggerFromConfigAsBytes([]byte(`
@@ -59,7 +54,7 @@ func (l *logger) configure(opts ...Option) {
 					<filter levels="error,critical">
 						<console formatid="error"/>
 					</filter>
-					<rollingfile formatid="main" type="date" filename="` + l.opts.Filename + `" datepattern="2006-01-02" maxrolls="30" namemode="prefix"/>
+					<rollingfile formatid="main" type="date" filename="` + l.opts.FilePath + `" datepattern="2006-01-02" maxrolls="` + strconv.Itoa(l.opts.MaxRolls) + `" namemode="prefix"/>
 				</outputs>
 				<formats>
 					<format id="main"  format="[%Date(2006-01-02 15:04:05.000)] [%LEV]` + l.opts.Service + ` %Func %File:%Line ==&gt; %Msg%n"/>

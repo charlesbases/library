@@ -17,17 +17,15 @@ type Options struct {
 	FilePath string // 日志文件
 	MaxRolls int    // 日志保留天数
 
-	ShowColor bool // 颜色显示
-	Skip      int  // 跳过的调用者数量. default: DefaultSkip
+	Skip int // 跳过的调用者数量. default: DefaultSkip
 }
 
 // defaultOption .
 func defaultOption() *Options {
 	return &Options{
-		FilePath:  DefaultFilePath,
-		MaxRolls:  DefaultMaxRolls,
-		ShowColor: false,
-		Skip:      DefaultSkip,
+		FilePath: DefaultFilePath,
+		MaxRolls: DefaultMaxRolls,
+		Skip:     DefaultSkip,
 	}
 }
 
@@ -37,13 +35,6 @@ type Option func(o *Options)
 func WithSkip(skip int) Option {
 	return func(o *Options) {
 		o.Skip = skip
-	}
-}
-
-// WithColor .
-func WithColor() Option {
-	return func(o *Options) {
-		o.ShowColor = true
 	}
 }
 
@@ -62,8 +53,8 @@ func WithFilePath(filename string) Option {
 }
 
 // WithMaxRolls .
-func WithMaxRolls(ttl int) Option {
+func WithMaxRolls(rolls int) Option {
 	return func(o *Options) {
-		o.MaxRolls = ttl
+		o.MaxRolls = rolls
 	}
 }

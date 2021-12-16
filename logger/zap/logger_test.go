@@ -1,41 +1,26 @@
 package zap
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
 
 func Test(t *testing.T) {
-	go func() {
-		{
-			Debug(now())
-			Info(now())
-			Warn(now())
-			Error(now())
-		}
-	}()
+	var loop int = 1e4
 
-	go func() {
-		{
-			l := New(WithService("1"))
-			l.Debug(now())
-			l.Info(now())
-			l.Warn(now())
-			l.Error(now())
-		}
-	}()
+	logger := New(WithService("zap")) // 1.768725642s
 
-	go func() {
-		{
-			l := New(WithService("2"))
-			l.Debug(now())
-			l.Info(now())
-			l.Warn(now())
-			l.Error(now())
-		}
-	}()
+	var start = time.Now()
+	for i := 0; i < loop; i++ {
+		logger.Debug(now())
+		logger.Info(now())
+		logger.Warn(now())
+		logger.Error(now())
+	}
+	fmt.Println(time.Since(start))
 
-	<-time.After(time.Second * 3)
+	<-time.After(time.Second * 1)
 }
 
 // now .

@@ -68,24 +68,24 @@ func (l *logger) color(lv zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
 	var level level
 	switch lv {
 	case zapcore.DebugLevel:
-		level = level_debug
+		level = levelDBG
 	case zapcore.InfoLevel:
-		level = level_info
+		level = levelINF
 	case zapcore.WarnLevel:
-		level = level_warn
+		level = levelWRN
 	case zapcore.ErrorLevel:
-		level = level_error
+		level = levelERR
 	case zapcore.DPanicLevel:
-		level = level_fatal
+		level = levelFAT
 	case zapcore.PanicLevel:
-		level = level_fatal
+		level = levelFAT
 	case zapcore.FatalLevel:
-		level = level_fatal
+		level = levelFAT
 	default:
-		level = level_trace
+		level = levelTRC
 	}
 
-	enc.AppendString(level.sprint(level.short()))
+	enc.AppendString(level.short())
 }
 
 // Trace .

@@ -2,18 +2,17 @@ package zap
 
 import (
 	"fmt"
-	"strconv"
 )
 
 type level int8
 
 const (
-	level_trace level = iota
-	level_debug
-	level_info
-	level_warn
-	level_error
-	level_fatal
+	levelTRC level = iota
+	levelDBG
+	levelINF
+	levelWRN
+	levelERR
+	levelFAT
 )
 
 type attribute int
@@ -34,65 +33,37 @@ const (
 	white
 )
 
-var colors = map[level]attribute{
-	level_trace: yellow,
-	level_debug: magenta,
-	level_info:  green,
-	level_warn:  blue,
-	level_error: red,
-	level_fatal: red,
+var colors = [6]attribute{}
+
+var shorts = [6]string{}
+
+func init() {
+	colors[levelTRC] = white
+	colors[levelDBG] = magenta
+	colors[levelINF] = green
+	colors[levelWRN] = blue
+	colors[levelERR] = red
+	colors[levelFAT] = red
+
+	shorts[levelTRC] = levelTRC.wrap("[TRC]")
+	shorts[levelDBG] = levelDBG.wrap("[DBG]")
+	shorts[levelINF] = levelINF.wrap("[INF]")
+	shorts[levelWRN] = levelWRN.wrap("[WRN]")
+	shorts[levelERR] = levelERR.wrap("[ERR]")
+	shorts[levelFAT] = levelFAT.wrap("[FAT]")
 }
 
-var shorts = map[level]string{
-	level_trace: "[TRC]",
-	level_debug: "[DBG]",
-	level_info:  "[INF]",
-	level_warn:  "[WRN]",
-	level_error: "[ERR]",
-	level_fatal: "[FAT]",
+// wrap .
+func (l level) wrap(v string) string {
+	return fmt.Sprintf("%s[%dm%s%s[%dm", escape, l.color(), v, escape, reset)
 }
 
-// format .
-func (c attribute) format() string {
-	return fmt.Sprintf("%s[%dm", escape, c)
-}
-
-// unformat .
-func (c attribute) unformat() string {
-	return fmt.Sprintf("%s[%dm", escape, reset)
-}
-
-// string .
-func (c attribute) string() string {
-	return strconv.Itoa(int(c))
-}
-
-// wrap
-func (c attribute) wrap(s string) string {
-	return c.format() + s + c.unformat()
+// color .
+func (l level) color() attribute {
+	return colors[l]
 }
 
 // short .
 func (l level) short() string {
-	if name, find := shorts[l]; find {
-		return name
-	} else {
-		return "UNK"
-	}
-}
-
-// color .
-func (l level) color() string {
-	if color, find := colors[l]; find {
-		return color.string()
-	}
-	return white.string()
-}
-
-// sprint .
-func (l level) sprint(data string) string {
-	if color, found := colors[l]; found {
-		return color.wrap(data)
-	}
-	return data
+	return shorts[l]
 }

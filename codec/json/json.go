@@ -24,6 +24,6 @@ func (*Marshaler) Unmarshal(d []byte, v interface{}) error {
 }
 
 // String .
-func (*Marshaler) String() codec.MarshalerType {
-	return codec.MarshalerType_Json
+func (*Marshaler) String() string {
+	return codec.MarshalerType_Json.String()
 }

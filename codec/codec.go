@@ -10,5 +10,10 @@ const (
 type Marshaler interface {
 	Marshal(interface{}) ([]byte, error)
 	Unmarshal([]byte, interface{}) error
-	String() MarshalerType
+	String() string
+}
+
+// String .
+func (mt MarshalerType) String() string {
+	return string(mt)
 }

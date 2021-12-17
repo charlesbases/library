@@ -1,7 +1,6 @@
-package broker
+package nats
 
 type Broker interface {
-	Init(opts ...Option) error
 	Options() *Options
 	Address() string
 	Connect() error
@@ -21,11 +20,6 @@ type Message struct {
 	Data   interface{}
 }
 
-// NewHander .
-func NewHander() Header {
-	return make(map[string]string)
-}
-
 type Event interface {
 	Topic() string
 	Reply() string
@@ -34,6 +28,8 @@ type Event interface {
 	Body() []byte
 	// Header return Message.Header
 	Header() Header
+	// Respond allows a convenient way to respond to requests in service based subscriptions
+	Respond(v interface{}) error
 
 	// Unmarshal unmarshal for Message.Data.
 	Unmarshal(pointer interface{}) error

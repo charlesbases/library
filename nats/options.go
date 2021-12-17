@@ -1,39 +1,50 @@
-package broker
+package nats
 
 import (
 	"context"
 	"crypto/tls"
+	"strings"
 
 	"library/codec"
+	"library/codec/json"
+
+	"github.com/nats-io/nats.go"
 )
 
 // Options .
 type Options struct {
-	Addrs []string
-
-	TLSConfig *tls.Config
+	Addrs   []string
+	Stream  string
+	Context context.Context
 
 	// Codec 编码类型. default: "application/json"
 	Codec codec.Marshaler
 
-	Context context.Context
+	TLSConfig *tls.Config
 }
 
 type Option func(o *Options)
 
-// NewOptions .
-func NewOptions(opts ...Option) *Options {
-	options := new(Options)
-	for _, opt := range opts {
-		opt(options)
+// defaultOptions .
+func defaultOptions() *Options {
+	return &Options{
+		Addrs:   []string{nats.DefaultURL},
+		Stream:  defaultStreamName,
+		Codec:   json.NewMarshaler(),
+		Context: context.Background(),
 	}
-	return options
 }
 
 // WithAddrs .
 func WithAddrs(addrs ...string) Option {
 	return func(o *Options) {
-		o.Addrs = addrs
+		for _, addr := range addrs {
+			if strings.HasPrefix(addr, "nats://") {
+				o.Addrs = append(o.Addrs, addr)
+			} else {
+				o.Addrs = append(o.Addrs, "nats://"+addr)
+			}
+		}
 	}
 }
 
@@ -67,13 +78,11 @@ type PublishOptions struct {
 
 type PublishOption func(o *PublishOptions)
 
-// NewPublishOptions .
-func NewPublishOptions(opts ...PublishOption) *PublishOptions {
-	options := new(PublishOptions)
-	for _, opt := range opts {
-		opt(options)
+// defaultPublishOptions .
+func defaultPublishOptions() *PublishOptions {
+	return &PublishOptions{
+		Context: context.Background(),
 	}
-	return options
 }
 
 // WithPublishContext .
@@ -85,30 +94,23 @@ func WithPublishContext(ctx context.Context) PublishOption {
 
 // SubscribeOptions 消息订阅
 type SubscribeOptions struct {
-	// AutoAck defaults to true. When a handler returns
-	// with a nil error the message is acked.
-	AutoAck bool
-	// Subscribers with the same queue name
+	// Queue Subscribers with the same queue name
 	// will create a shared subscription where each
 	// receives a subset of messages.
 	Queue string
 
-	// Other options for implementations of the interface
+	// Context Other options for implementations of the interface
 	// can be stored in a context
 	Context context.Context
 }
 
 type SubscribeOption func(o *SubscribeOptions)
 
-// NewSubscribeOptions .
-func NewSubscribeOptions(opts ...SubscribeOption) *SubscribeOptions {
-	options := &SubscribeOptions{
-		AutoAck: true,
+// defaultSubscribeOptions .
+func defaultSubscribeOptions() *SubscribeOptions {
+	return &SubscribeOptions{
+		Context: context.Background(),
 	}
-	for _, opt := range opts {
-		opt(options)
-	}
-	return options
 }
 
 // WithSubscribeQueue .

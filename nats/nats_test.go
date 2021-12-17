@@ -47,17 +47,17 @@ func Test(t *testing.T) {
 			// nats.Subscribe(topicA, consumerA)
 			// nats.Subscribe(topicA, consumerB)
 			// nats.Subscribe(topicA, consumerC)
-			// nats.Subscribe(topicA, consumerA, WithSubscribeQueue("test queue"))
-			// nats.Subscribe(topicA, consumerB, WithSubscribeQueue("test queue"))
-			// nats.Subscribe(topicA, consumerC, WithSubscribeQueue("test queue"))
+			// nats.Subscribe(topicA, consumerA, WithSubscribeQueue("queue"))
+			// nats.Subscribe(topicA, consumerB, WithSubscribeQueue("queue"))
+			// nats.Subscribe(topicA, consumerC, WithSubscribeQueue("queue"))
 		}
 		{
-			nats.JetStreamSubscribe("*", consumerA)
-			nats.JetStreamSubscribe("*", consumerB)
-			nats.JetStreamSubscribe("*", consumerC)
-			// nats.StreamSubscribe(topicB, consumerA)
-			// nats.StreamSubscribe(topicB, consumerB)
-			// nats.StreamSubscribe(topicB, consumerC)
+			// nats.JetStreamSubscribe("*", consumerA)
+			// nats.JetStreamSubscribe("*", consumerB)
+			// nats.JetStreamSubscribe("*", consumerC)
+			nats.JetStreamSubscribe(topicB, consumerA)
+			nats.JetStreamSubscribe(topicB, consumerB)
+			nats.JetStreamSubscribe(topicB, consumerC)
 		}
 	}()
 

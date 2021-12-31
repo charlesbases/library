@@ -13,6 +13,7 @@ require (
 	github.com/urfave/negroni v1.0.0
 	go.uber.org/zap v1.19.0
 	google.golang.org/protobuf v1.26.0
+	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 	gorm.io/driver/mysql v1.1.3
 	gorm.io/gorm v1.22.2
 )
@@ -32,5 +33,6 @@ require (
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e // indirect
+	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

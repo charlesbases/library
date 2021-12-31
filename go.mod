@@ -7,8 +7,10 @@ require (
 	github.com/go-redis/redis/v8 v8.11.0
 	github.com/golang/protobuf v1.5.2
 	github.com/google/uuid v1.3.0
+	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/nats-io/nats.go v1.13.1-0.20211122170419-d7c1d78a50fc
+	github.com/urfave/negroni v1.0.0
 	go.uber.org/zap v1.19.0
 	google.golang.org/protobuf v1.26.0
 	gorm.io/driver/mysql v1.1.3

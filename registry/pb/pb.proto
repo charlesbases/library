@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+option go_package = "github.com/charlesbases/library/registry/pb";
+
+package pb;
+
+message Service {
+  string name = 1;
+  string version = 2;
+  repeated Node nodes = 3;
+  map<string, string> metadata = 4;
+}
+
+message Node {
+  string ID = 1;
+  string address = 2;
+  string created_at = 3;
+  map<string, string> metadata = 4;
+}

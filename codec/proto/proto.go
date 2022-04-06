@@ -14,16 +14,16 @@ func NewMarshaler() codec.Marshaler {
 }
 
 // Marshal .
-func (*Marshaler) Marshal(v interface{}) ([]byte, error) {
+func (m *Marshaler) Marshal(v interface{}) ([]byte, error) {
 	return proto.Marshal(v.(proto.Message))
 }
 
 // Unmarshal .
-func (*Marshaler) Unmarshal(data []byte, v interface{}) error {
+func (m *Marshaler) Unmarshal(data []byte, v interface{}) error {
 	return proto.Unmarshal(data, v.(proto.Message))
 }
 
-// String .
-func (*Marshaler) String() string {
-	return codec.MarshalerType_Proto.String()
+// ContentType .
+func (m *Marshaler) ContentType() codec.ContentType {
+	return codec.ContentTypeProto
 }

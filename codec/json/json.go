@@ -6,24 +6,34 @@ import (
 	"library/codec"
 )
 
-type Marshaler struct{}
+type Marshaler struct {
+	indent bool
+}
 
 // NewMarshaler .
 func NewMarshaler() codec.Marshaler {
-	return new(Marshaler)
+	return &Marshaler{indent: false}
+}
+
+// NewMarshalerIndent .
+func NewMarshalerIndent() codec.Marshaler {
+	return &Marshaler{indent: true}
 }
 
 // Marshal .
-func (*Marshaler) Marshal(v interface{}) ([]byte, error) {
+func (m *Marshaler) Marshal(v interface{}) ([]byte, error) {
+	if m.indent {
+		return json.MarshalIndent(v, "", "  ")
+	}
 	return json.Marshal(v)
 }
 
 // Unmarshal .
-func (*Marshaler) Unmarshal(d []byte, v interface{}) error {
+func (m *Marshaler) Unmarshal(d []byte, v interface{}) error {
 	return json.Unmarshal(d, v)
 }
 
-// String .
-func (*Marshaler) String() string {
-	return codec.MarshalerType_Json.String()
+// ContentType .
+func (m *Marshaler) ContentType() codec.ContentType {
+	return codec.ContentTypeJson
 }

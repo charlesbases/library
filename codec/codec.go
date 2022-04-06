@@ -1,19 +1,22 @@
 package codec
 
-type MarshalerType string
+type ContentType string
 
 const (
-	MarshalerType_Json  MarshalerType = "application/json"
-	MarshalerType_Proto MarshalerType = "application/proto"
+	// ContentTypeJson json
+	ContentTypeJson ContentType = "application/json"
+	// ContentTypeProto proto
+	ContentTypeProto ContentType = "application/proto"
 )
 
+// Marshaler 编解码器
 type Marshaler interface {
 	Marshal(interface{}) ([]byte, error)
 	Unmarshal([]byte, interface{}) error
-	String() string
+	ContentType() ContentType
 }
 
 // String .
-func (mt MarshalerType) String() string {
-	return string(mt)
+func (ct ContentType) String() string {
+	return string(ct)
 }

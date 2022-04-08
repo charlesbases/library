@@ -66,32 +66,36 @@ func Transaction(fs ...func(ts *gorm.DB) error) error {
 const namespaces = "[MySQL] >>> "
 
 // l .
-type l struct{}
-
-func (*l) LogMode(level glogger.LogLevel) glogger.Interface {
-	return new(l)
+type l struct {
+	showsql bool
 }
 
-func (*l) Info(ctx context.Context, s string, i ...interface{}) {
+func (l *l) LogMode(level glogger.LogLevel) glogger.Interface {
+	return l
+}
+
+func (l *l) Info(ctx context.Context, s string, i ...interface{}) {
 	logger.Infof(namespaces+s, i...)
 }
 
-func (*l) Warn(ctx context.Context, s string, i ...interface{}) {
+func (l *l) Warn(ctx context.Context, s string, i ...interface{}) {
 	logger.Warnf(namespaces+s, i...)
 }
 
-func (*l) Error(ctx context.Context, s string, i ...interface{}) {
+func (l *l) Error(ctx context.Context, s string, i ...interface{}) {
 	logger.Errorf(namespaces+s, i...)
 }
 
-func (*l) Trace(ctx context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {
-	elapsed := time.Since(begin)
-	sql, rows := fc()
+func (l *l) Trace(ctx context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {
+	if l.showsql {
+		elapsed := time.Since(begin)
+		sql, rows := fc()
 
-	switch {
-	case err != nil && !errors.Is(err, gorm.ErrRecordNotFound):
-		logger.Errorf(namespaces+"%s | %v", sql, err)
-	default:
-		logger.Debugf(namespaces+"%s | %d rows | %v", sql, rows, elapsed)
+		switch {
+		case err != nil && !errors.Is(err, gorm.ErrRecordNotFound):
+			logger.Errorf(namespaces+"%s | %v", sql, err)
+		default:
+			logger.Debugf(namespaces+"%s | %d rows | %v", sql, rows, elapsed)
+		}
 	}
 }

@@ -61,23 +61,23 @@ func DB() *gorm.DB {
 }
 
 // Transaction .
-func (db *db) Transaction(fs ...func(ts *gorm.DB) error) error {
-	ts := db.gormDB.Begin()
+func Transaction(gormDB *gorm.DB, fs ...func(tx *gorm.DB) error) error {
+	tx := gormDB.Begin()
 	defer func() {
 		if r := recover(); r != nil {
-			ts.Rollback()
+			tx.Rollback()
 		}
 	}()
 
 	for _, f := range fs {
-		if err := f(ts); err != nil {
-			ts.Rollback()
+		if err := f(tx); err != nil {
+			tx.Rollback()
 			return err
 		}
 	}
 
-	if err := ts.Commit().Error; err != nil {
-		ts.Rollback()
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
 		return err
 	}
 	return nil

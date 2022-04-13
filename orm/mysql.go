@@ -16,7 +16,7 @@ type mysqlDialector struct{}
 // Dialector .
 func (p *mysqlDialector) Dialector(opts *Options) gorm.Dialector {
 	if len(opts.Addrs) == 0 {
-		opts.Addrs = []string{defaultPostgresDSN}
+		opts.Addrs = []string{defaultMySQL}
 	}
 	return mysql.Open(opts.Addrs[0])
 }

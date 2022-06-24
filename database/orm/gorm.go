@@ -7,8 +7,9 @@ import (
 	"sync"
 	"time"
 
-	logger "library/logger/seelog"
+	"library/database"
 
+	"github.com/charlesbases/logger"
 	"gorm.io/gorm"
 	glogger "gorm.io/gorm/logger"
 )
@@ -23,12 +24,35 @@ type db struct {
 	gormDB *gorm.DB
 }
 
+/*
+// New new db
+func New(fn Dialector, opts ...database.Option) *db {
+	var options = new(database.Options)
+	for _, opt := range opts {
+		opt(options)
+	}
+	if options.Timeout == 0 {
+		options.Timeout = database.DefaultTimeout
+	}
+
+	gormDB, err := gorm.Open(fn.Dialector(options), &gorm.Config{Logger: gormlogger(fn.Name(), options.ShowSQL)})
+	if err != nil {
+		logger.Fatalf("database connect failed. %v", err)
+	}
+
+	return &db{gormDB: gormDB}
+}
+*/
+
 // Init init defaultDB
-func Init(fn Dialector, opts ...Option) {
+func Init(fn Dialector, opts ...database.Option) {
 	once.Do(func() {
-		var options = DefaultOptions()
+		var options = database.DefaultOptions()
 		for _, opt := range opts {
 			opt(options)
+		}
+		if options.Timeout == 0 {
+			options.Timeout = database.DefaultTimeout
 		}
 
 		gormDB, err := gorm.Open(fn.Dialector(options), &gorm.Config{Logger: gormlogger(fn.Name(), options.ShowSQL)})
@@ -38,21 +62,6 @@ func Init(fn Dialector, opts ...Option) {
 
 		defaultDB = &db{gormDB: gormDB}
 	})
-}
-
-// New new db
-func New(fn Dialector, opts ...Option) *db {
-	var options = DefaultOptions()
-	for _, opt := range opts {
-		opt(options)
-	}
-
-	gormDB, err := gorm.Open(fn.Dialector(options), &gorm.Config{Logger: gormlogger(fn.Name(), options.ShowSQL)})
-	if err != nil {
-		logger.Fatalf("database connect failed. %v", err)
-	}
-
-	return &db{gormDB: gormDB}
 }
 
 // DB .
@@ -84,7 +93,7 @@ func Transaction(gormDB *gorm.DB, fs ...func(tx *gorm.DB) error) error {
 }
 
 type Dialector interface {
-	Dialector(optons *Options) gorm.Dialector
+	Dialector(optons *database.Options) gorm.Dialector
 	Name() string
 }
 
@@ -95,24 +104,24 @@ type l struct {
 }
 
 // gormlogger .
-func gormlogger(name string, sql bool) glogger.Interface {
-	return &l{namespaces: fmt.Sprintf("[%s] >>> ", name), showsql: sql}
+func gormlogger(name string, show bool) glogger.Interface {
+	return &l{namespaces: fmt.Sprintf("[%s] >>> ", name), showsql: show}
 }
 
 func (l *l) LogMode(level glogger.LogLevel) glogger.Interface {
 	return l
 }
 
-func (l *l) Info(ctx context.Context, s string, i ...interface{}) {
-	logger.Infof(l.namespaces+s, i...)
+func (l *l) Info(ctx context.Context, format string, v ...interface{}) {
+	logger.Infof(l.namespaces+format, v...)
 }
 
-func (l *l) Warn(ctx context.Context, s string, i ...interface{}) {
-	logger.Warnf(l.namespaces+s, i...)
+func (l *l) Warn(ctx context.Context, format string, v ...interface{}) {
+	logger.Warnf(l.namespaces+format, v...)
 }
 
-func (l *l) Error(ctx context.Context, s string, i ...interface{}) {
-	logger.Errorf(l.namespaces+s, i...)
+func (l *l) Error(ctx context.Context, format string, v ...interface{}) {
+	logger.Errorf(l.namespaces+format, v...)
 }
 
 func (l *l) Trace(ctx context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {

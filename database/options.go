@@ -1,4 +1,4 @@
-package orm
+package database
 
 import (
 	"context"
@@ -35,7 +35,6 @@ type Options struct {
 // DefaultOptions .
 func DefaultOptions() *Options {
 	return &Options{
-		Timeout: DefaultTimeout,
 		Context: DefaultContext,
 		ShowSQL: false,
 	}

@@ -1,11 +1,15 @@
 package lifecycle
 
-import "github.com/charlesbases/logger"
+import (
+	"context"
+
+	"github.com/charlesbases/logger"
+)
 
 // Hook .
 type Hook interface {
-	OnStart() error
-	OnStop() error
+	OnStart(ctx context.Context) error
+	OnStop(ctx context.Context) error
 	String() string
 }
 
@@ -31,9 +35,9 @@ func (lf *Lifecycle) Append(hooks ...Hook) {
 }
 
 // Start .
-func (lf *Lifecycle) Start() error {
+func (lf *Lifecycle) Start(ctx context.Context) error {
 	for _, hook := range lf.hooks {
-		if err := hook.OnStart(); err != nil {
+		if err := hook.OnStart(ctx); err != nil {
 			logger.Errorf("%s start failed: %v", hook.String(), err)
 			return err
 		}
@@ -43,9 +47,9 @@ func (lf *Lifecycle) Start() error {
 }
 
 // Stop .
-func (lf *Lifecycle) Stop() error {
+func (lf *Lifecycle) Stop(ctx context.Context) error {
 	for _, hook := range lf.hooks {
-		if err := hook.OnStop(); err != nil {
+		if err := hook.OnStop(ctx); err != nil {
 			logger.Errorf("%s stop failed: %v", hook.String(), err)
 			return err
 		}

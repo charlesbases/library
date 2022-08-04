@@ -1,6 +1,7 @@
 package kafka
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -183,7 +184,7 @@ func (c *client) Subscribe(topic string, handler broker.Handler, opts ...broker.
 }
 
 // OnStart .
-func (c *client) OnStart() error {
+func (c *client) OnStart(ctx context.Context) error {
 	if !c.actived {
 		// Client
 		client, err := sarama.NewClient(c.addrs, c.conf)
@@ -202,7 +203,7 @@ func (c *client) OnStart() error {
 }
 
 // OnStop .
-func (c *client) OnStop() error {
+func (c *client) OnStop(ctx context.Context) error {
 	if c.actived {
 		c.actived = false
 		close(c.closing)

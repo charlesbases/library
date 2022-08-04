@@ -1,6 +1,7 @@
 package lifecycle
 
 import (
+	"context"
 	"fmt"
 	"testing"
 )
@@ -10,21 +11,21 @@ func TestLifecycle(t *testing.T) {
 
 	lf.Append(new(ServerA), new(ServerB))
 
-	lf.Start()
-	lf.Stop()
+	lf.Start(context.Background())
+	lf.Stop(context.Background())
 }
 
 // ServerA .
 type ServerA struct{}
 
 // OnStart .
-func (s *ServerA) OnStart() error {
+func (s *ServerA) OnStart(ctx context.Context) error {
 	fmt.Println("A OnStart")
 	return nil
 }
 
 // OnStop .
-func (s *ServerA) OnStop() error {
+func (s *ServerA) OnStop(ctx context.Context) error {
 	fmt.Println("A OnStop")
 	return nil
 }
@@ -38,13 +39,13 @@ func (s *ServerA) String() string {
 type ServerB struct{}
 
 // OnStart .
-func (s *ServerB) OnStart() error {
+func (s *ServerB) OnStart(ctx context.Context) error {
 	fmt.Println("B OnStart")
 	return nil
 }
 
 // OnStop .
-func (s *ServerB) OnStop() error {
+func (s *ServerB) OnStop(ctx context.Context) error {
 	fmt.Println("B OnStop")
 	return nil
 }

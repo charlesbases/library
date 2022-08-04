@@ -1,6 +1,7 @@
 package broker
 
 import (
+	"context"
 	"errors"
 
 	"library/codec"
@@ -23,9 +24,9 @@ type Broker interface {
 	// Subscribe 消息订阅
 	Subscribe(topic string, handler Handler, otps ...SubscribeOption)
 	// OnStart lifecycle.Hook
-	OnStart() error
+	OnStart(ctx context.Context) error
 	// OnStop lifecycle.Hook
-	OnStop() error
+	OnStop(ctx context.Context) error
 	// String .
 	String() string
 }

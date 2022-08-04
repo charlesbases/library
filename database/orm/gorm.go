@@ -24,7 +24,6 @@ type db struct {
 	gormDB *gorm.DB
 }
 
-/*
 // New new db
 func New(fn Dialector, opts ...database.Option) *db {
 	var options = new(database.Options)
@@ -42,7 +41,6 @@ func New(fn Dialector, opts ...database.Option) *db {
 
 	return &db{gormDB: gormDB}
 }
-*/
 
 // Init init defaultDB
 func Init(fn Dialector, opts ...database.Option) {

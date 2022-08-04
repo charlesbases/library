@@ -11,7 +11,7 @@ const (
 
 // Marshaler 编解码器
 type Marshaler interface {
-	Marshal(interface{}) ([]byte, error)
+	Marshal(interface{}, ...MarshalOption) ([]byte, error)
 	Unmarshal([]byte, interface{}) error
 	ContentType() ContentType
 }

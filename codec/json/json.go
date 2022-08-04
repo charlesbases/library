@@ -12,17 +12,17 @@ type Marshaler struct {
 
 // NewMarshaler .
 func NewMarshaler() codec.Marshaler {
-	return &Marshaler{indent: false}
-}
-
-// NewMarshalerIndent .
-func NewMarshalerIndent() codec.Marshaler {
-	return &Marshaler{indent: true}
+	return new(Marshaler)
 }
 
 // Marshal .
-func (m *Marshaler) Marshal(v interface{}) ([]byte, error) {
-	if m.indent {
+func (m *Marshaler) Marshal(v interface{}, options ...codec.MarshalOption) ([]byte, error) {
+	var opts = new(codec.MarshalOptions)
+	for _, o := range options {
+		o(opts)
+	}
+
+	if opts.Indent {
 		return json.MarshalIndent(v, "", "  ")
 	}
 	return json.Marshal(v)

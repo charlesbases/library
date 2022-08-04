@@ -14,7 +14,7 @@ func NewMarshaler() codec.Marshaler {
 }
 
 // Marshal .
-func (m *Marshaler) Marshal(v interface{}) ([]byte, error) {
+func (m *Marshaler) Marshal(v interface{}, options ...codec.MarshalOption) ([]byte, error) {
 	return proto.Marshal(v.(proto.Message))
 }
 

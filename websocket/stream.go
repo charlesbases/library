@@ -3,11 +3,13 @@ package websocket
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"library/websocket/pb"
 
 	"github.com/charlesbases/logger"
+	"github.com/gorilla/websocket"
 )
 
 const (
@@ -41,6 +43,7 @@ type (
 	// WebSocketBroadcast .
 	WebSocketBroadcast struct {
 		Topic topic       `json:"topic" validate:"required"`
+		Time  string      `json:"time" validate:"required"`
 		Data  interface{} `json:"data" validate:"required"`
 	}
 )
@@ -101,6 +104,48 @@ func (s *stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		logger.Error("websocket connect failed. ", err)
 	}
 	return
+}
+
+// connect .
+func (stream *stream) connect(w http.ResponseWriter, r *http.Request) error {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		logger.Error("websocket upgrade error: ", err)
+		return &WebError{Code: http.StatusBadRequest, Message: err.Error()}
+	}
+	defer conn.Close()
+
+	session := stream.session(r, conn)
+	logger.Debugf("[WebSocketID: %s] connected", session.id)
+
+	session.ping()
+	session.serve()
+	return nil
+}
+
+// session .
+func (stream *stream) session(r *http.Request, conn *websocket.Conn) *session {
+	return &session{
+		id:            store.createSession(),
+		header:        stream.parseHeader(r),
+		subscriptions: make(map[topic]bool),
+		request:       make(chan *WebSocketRequest, stream.opts.buffer),
+		response:      make(chan *WebSocketResponse, stream.opts.buffer),
+		broadcast:     make(chan *WebSocketBroadcast, stream.opts.buffer),
+		ctx:           r.Context(),
+		conn:          conn,
+		opts:          stream.opts,
+		closing:       make(chan struct{}),
+	}
+}
+
+// parseHeader .
+func (stream *stream) parseHeader(r *http.Request) metadata {
+	var header metadata = make(map[string]string, 0)
+	for key, val := range r.Header {
+		header[key] = strings.Join(val, ",")
+	}
+	return header
 }
 
 // options .

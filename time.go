@@ -7,6 +7,11 @@ const (
 	DefaultTimeFormatLayout = "2006-01-02 15:04:05"
 )
 
+// Now 当前时间
+func Now() string {
+	return time.Now().Format(DefaultTimeFormatLayout)
+}
+
 // NowTimestamp 当前毫秒时间戳
 func NowTimestamp() int64 {
 	return time.Now().UnixMilli()

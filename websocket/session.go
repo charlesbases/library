@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"library"
 	"library/websocket/pb"
 
 	"github.com/charlesbases/logger"
@@ -54,54 +55,12 @@ type session struct {
 	closing chan struct{}
 }
 
-// connect .
-func (stream *stream) connect(w http.ResponseWriter, r *http.Request) error {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		logger.Error("websocket upgrade error: ", err)
-		return &WebError{Code: http.StatusBadRequest, Message: err.Error()}
-	}
-	defer conn.Close()
+// ping .
+func (session *session) ping() {
+	if !session.closed {
+		session.ready = true
 
-	session := stream.session(r, conn)
-	logger.Debugf("[WebSocketID: %s] connected", session.id)
-
-	session.ping()
-	session.serve()
-	return nil
-}
-
-// session .
-func (stream *stream) session(r *http.Request, conn *websocket.Conn) *session {
-	return &session{
-		id:            store.createSession(),
-		header:        stream.parseHeader(r),
-		subscriptions: make(map[topic]bool),
-		request:       make(chan *WebSocketRequest, stream.opts.buffer),
-		response:      make(chan *WebSocketResponse, stream.opts.buffer),
-		broadcast:     make(chan *WebSocketBroadcast, stream.opts.buffer),
-		ctx:           r.Context(),
-		conn:          conn,
-		opts:          stream.opts,
-		closing:       make(chan struct{}),
-	}
-}
-
-// parseHeader .
-func (stream *stream) parseHeader(r *http.Request) metadata {
-	var header metadata = make(map[string]string, 0)
-	for key, val := range r.Header {
-		header[key] = strings.Join(val, ",")
-	}
-	return header
-}
-
-// isCloseError .
-func (session *session) isCloseError(err error) int {
-	if e, ok := err.(*websocket.CloseError); ok {
-		return e.Code
-	} else {
-		return -1
+		session.normal(pb.Method_PING, time.Now().Format(defaultDateFormat))
 	}
 }
 
@@ -137,6 +96,7 @@ func (session *session) serve() {
 			}
 		case event, ok := <-session.broadcast:
 			if ok {
+				event.Time = library.Now()
 				session.event(event)
 			}
 		case <-session.closing:
@@ -198,6 +158,15 @@ func (session *session) listening() {
 	}
 }
 
+// isCloseError .
+func (session *session) isCloseError(err error) int {
+	if e, ok := err.(*websocket.CloseError); ok {
+		return e.Code
+	} else {
+		return -1
+	}
+}
+
 // write .
 func (session *session) write(v *WebSocketResponse) error {
 	if session.ready {
@@ -208,15 +177,6 @@ func (session *session) write(v *WebSocketResponse) error {
 
 	logger.Debugf("[WebSocketID: %s] write failed. connect not ready.", session.id)
 	return nil
-}
-
-// ping .
-func (session *session) ping() {
-	if !session.closed {
-		session.ready = true
-
-		session.normal(pb.Method_PING, time.Now().Format(defaultDateFormat))
-	}
 }
 
 // normal WebSocket 正常返回
@@ -256,7 +216,7 @@ func (sub topic) verify(t topic) bool {
 	return false
 }
 
-// event .
+// event . TODO
 func (session *session) event(event *WebSocketBroadcast) {
 	if session.ready {
 		session.lock.RLock()

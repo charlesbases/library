@@ -324,11 +324,11 @@ type pool struct {
 
 // verifySession .
 func (pool *pool) verifySession(id ID) bool {
-	var active bool
 	pool.lk.RLock()
-	_, active = pool.store[id]
+	_, found := pool.store[id]
 	pool.lk.RUnlock()
-	return active
+
+	return found
 }
 
 // newSession .

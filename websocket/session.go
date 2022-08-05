@@ -27,6 +27,8 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin:      func(r *http.Request) bool { return true },
 }
 
+type ID string
+
 type metadata map[string]string
 
 // session .
@@ -57,7 +59,7 @@ func (stream *stream) connect(w http.ResponseWriter, r *http.Request) error {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		logger.Error("websocket upgrade error: ", err)
-		return &WebError{ErrCode: http.StatusBadRequest, ErrMsg: err.Error()}
+		return &WebError{Code: http.StatusBadRequest, Message: err.Error()}
 	}
 	defer conn.Close()
 
@@ -240,16 +242,16 @@ func (session *session) error(errCode int, errMsg string) {
 type topic string
 
 // verify .
-func (sub *topic) verify(event topic) bool {
-	if *sub == "*" {
+func (sub topic) verify(t topic) bool {
+	if sub == "*" {
 		return true
 	}
-	if *sub == event {
+	if sub == t {
 		return true
 	}
-	if strings.HasSuffix(string(*sub), "*") {
-		prefix := strings.TrimSuffix(string(*sub), "*")
-		return strings.HasPrefix(string(event), prefix)
+	if strings.HasSuffix(string(sub), "*") {
+		prefix := strings.TrimSuffix(string(sub), "*")
+		return strings.HasPrefix(string(t), prefix)
 	}
 	return false
 }
@@ -351,8 +353,6 @@ func (session *session) disconnect() {
 		session = nil
 	})
 }
-
-type ID string
 
 var store = &pool{store: make(map[ID]struct{}, 0)}
 

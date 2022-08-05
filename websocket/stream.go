@@ -45,6 +45,18 @@ type (
 	}
 )
 
+// WebError .
+type WebError struct {
+	Code    int    `json:"code,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
+// Error .
+func (err *WebError) Error() string {
+	data, _ := json.Marshal(err)
+	return string(data)
+}
+
 // init .
 func (s *stream) init(opts ...option) {
 	var options = new(options)

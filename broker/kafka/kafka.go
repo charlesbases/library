@@ -110,6 +110,35 @@ func (c *client) Address() []string {
 	return c.addrs
 }
 
+// Connect .
+func (c *client) Connect(ctx context.Context) error {
+	if !c.actived {
+		// Client
+		client, err := sarama.NewClient(c.addrs, c.conf)
+		if err != nil {
+			logger.Fatalf("[Kafka] connect failed. %v", err)
+		}
+		c.client = client
+
+		c.newAsyncProducer()
+
+		c.actived = true
+
+		go c.daemon()
+	}
+	return nil
+}
+
+// Disconnect .
+func (c *client) Disconnect(ctx context.Context) error {
+	if c.actived {
+		c.actived = false
+		close(c.closing)
+		c.client.Close()
+	}
+	return nil
+}
+
 // Publish 异步发布
 func (c *client) Publish(topic string, v interface{}, opts ...broker.PublishOption) error {
 	if c.actived {
@@ -181,35 +210,6 @@ func (c *client) Subscribe(topic string, handler broker.Handler, opts ...broker.
 	} else {
 		logger.Warnf(`[Kafka] subscribe["%s"] failed. broker is disconnected`, topic)
 	}
-}
-
-// OnStart .
-func (c *client) OnStart(ctx context.Context) error {
-	if !c.actived {
-		// Client
-		client, err := sarama.NewClient(c.addrs, c.conf)
-		if err != nil {
-			logger.Fatalf("[Kafka] connect failed. %v", err)
-		}
-		c.client = client
-
-		c.newAsyncProducer()
-
-		c.actived = true
-
-		go c.daemon()
-	}
-	return nil
-}
-
-// OnStop .
-func (c *client) OnStop(ctx context.Context) error {
-	if c.actived {
-		c.actived = false
-		close(c.closing)
-		c.client.Close()
-	}
-	return nil
 }
 
 // String .

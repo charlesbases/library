@@ -7,10 +7,11 @@ import (
 )
 
 // Hook .
-type Hook interface {
-	OnStart(ctx context.Context) error
-	OnStop(ctx context.Context) error
-	String() string
+type Hook struct {
+	Name string
+
+	OnStart func(ctx context.Context) error
+	OnStop  func(ctx context.Context) error
 }
 
 // Lifecycle .
@@ -26,34 +27,32 @@ func New() *Lifecycle {
 }
 
 // Append .
-func (lf *Lifecycle) Append(hooks ...Hook) {
-	if lf.hooks != nil {
-		lf.hooks = append(lf.hooks, hooks...)
-	} else {
-		lf.hooks = hooks
-	}
+func (lf *Lifecycle) Append(h Hook) {
+	lf.hooks = append(lf.hooks, h)
 }
 
 // Start .
 func (lf *Lifecycle) Start(ctx context.Context) error {
-	for _, hook := range lf.hooks {
-		if err := hook.OnStart(ctx); err != nil {
-			logger.Errorf("%s start failed: %v", hook.String(), err)
-			return err
+	for _, h := range lf.hooks {
+		if h.OnStart != nil {
+			if err := h.OnStart(ctx); err != nil {
+				logger.Errorf("%s start failed: %v", h.Name, err)
+				return err
+			}
 		}
 	}
-
 	return nil
 }
 
 // Stop .
 func (lf *Lifecycle) Stop(ctx context.Context) error {
-	for _, hook := range lf.hooks {
-		if err := hook.OnStop(ctx); err != nil {
-			logger.Errorf("%s stop failed: %v", hook.String(), err)
-			return err
+	for _, h := range lf.hooks {
+		if h.OnStop != nil {
+			if err := h.OnStop(ctx); err != nil {
+				logger.Errorf("%s stop failed: %v", h.Name, err)
+				return err
+			}
 		}
 	}
-
 	return nil
 }

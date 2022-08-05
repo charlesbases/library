@@ -19,14 +19,14 @@ var (
 type Broker interface {
 	// Address .
 	Address() []string
+	// Connect 连接
+	Connect(ctx context.Context) error
+	// Disconnect 断开连接
+	Disconnect(ctx context.Context) error
 	// Publish 消息发布
 	Publish(topic string, v interface{}, opts ...PublishOption) error
 	// Subscribe 消息订阅
 	Subscribe(topic string, handler Handler, otps ...SubscribeOption)
-	// OnStart lifecycle.Hook
-	OnStart(ctx context.Context) error
-	// OnStop lifecycle.Hook
-	OnStop(ctx context.Context) error
 	// String .
 	String() string
 }

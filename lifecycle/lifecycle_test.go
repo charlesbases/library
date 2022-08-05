@@ -9,7 +9,21 @@ import (
 func TestLifecycle(t *testing.T) {
 	lf := New()
 
-	lf.Append(new(ServerA), new(ServerB))
+	var a = new(ServerA)
+	var b = new(ServerB)
+
+	lf.Append(Hook{
+		Name:    a.String(),
+		OnStart: a.OnStart,
+		OnStop:  a.OnStop,
+	})
+
+	lf.Append(Hook{
+		Name: b.String(),
+		OnStart: func(ctx context.Context) error {
+			return b.OnStart()
+		},
+	})
 
 	lf.Start(context.Background())
 	lf.Stop(context.Background())
@@ -39,13 +53,13 @@ func (s *ServerA) String() string {
 type ServerB struct{}
 
 // OnStart .
-func (s *ServerB) OnStart(ctx context.Context) error {
+func (s *ServerB) OnStart() error {
 	fmt.Println("B OnStart")
 	return nil
 }
 
 // OnStop .
-func (s *ServerB) OnStop(ctx context.Context) error {
+func (s *ServerB) OnStop() error {
 	fmt.Println("B OnStop")
 	return nil
 }

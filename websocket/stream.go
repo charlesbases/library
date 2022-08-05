@@ -57,6 +57,13 @@ func (err *WebError) Error() string {
 	return string(data)
 }
 
+// NewStream .
+func NewStream(opts ...option) *stream {
+	stream := new(stream)
+	stream.init(opts...)
+	return stream
+}
+
 // init .
 func (s *stream) init(opts ...option) {
 	var options = new(options)
@@ -77,13 +84,6 @@ func (s *stream) init(opts ...option) {
 	if s.opts.heartbeat == 0 {
 		s.opts.heartbeat = defaultHeartbeat
 	}
-}
-
-// NewStream .
-func NewStream(opts ...option) *stream {
-	stream := new(stream)
-	stream.init(opts...)
-	return stream
 }
 
 func (s *stream) ServeHTTP(w http.ResponseWriter, r *http.Request) {

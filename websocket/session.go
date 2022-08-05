@@ -9,9 +9,10 @@ import (
 	"sync"
 	"time"
 
-	logger "library/logger/seelog"
 	"library/websocket/pb"
 
+	"github.com/charlesbases/logger"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -30,7 +31,7 @@ type metadata map[string]string
 
 // session .
 type session struct {
-	id            string
+	id            ID
 	header        metadata
 	subscriptions map[topic]bool
 
@@ -171,7 +172,6 @@ func (session *session) listening() {
 
 			if session.closed {
 				session.error(http.StatusBadRequest, "connect closed")
-				session.close()
 				return
 			}
 
@@ -350,4 +350,41 @@ func (session *session) disconnect() {
 
 		session = nil
 	})
+}
+
+type ID string
+
+var store = &pool{store: make(map[ID]struct{}, 0)}
+
+// pool .
+type pool struct {
+	lk    sync.RWMutex
+	store map[ID]struct{}
+}
+
+// verifySession .
+func (pool *pool) verifySession(id ID) bool {
+	var active bool
+	pool.lk.RLock()
+	_, active = pool.store[id]
+	pool.lk.RUnlock()
+	return active
+}
+
+// newSession .
+func (pool *pool) createSession() ID {
+	id := ID(uuid.New().String())
+
+	pool.lk.Lock()
+	pool.store[id] = struct{}{}
+	pool.lk.Unlock()
+
+	return id
+}
+
+// dropSession .
+func (pool *pool) dropSession(id ID) {
+	pool.lk.Lock()
+	delete(pool.store, id)
+	pool.lk.Unlock()
 }

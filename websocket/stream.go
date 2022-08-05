@@ -3,13 +3,11 @@ package websocket
 import (
 	"encoding/json"
 	"net/http"
-	"sync"
 	"time"
 
-	logger "library/logger/seelog"
 	"library/websocket/pb"
 
-	"github.com/google/uuid"
+	"github.com/charlesbases/logger"
 )
 
 const (
@@ -28,13 +26,13 @@ type stream struct {
 type (
 	// WebSocketRequest .
 	WebSocketRequest struct {
-		ID     string           `json:"id" validate:"required"`
+		ID     ID               `json:"id" validate:"required"`
 		Method pb.Method        `json:"method" validate:"required"`
 		Params *json.RawMessage `json:"params,omitempty"`
 	}
 	// WebSocketResponse .
 	WebSocketResponse struct {
-		ID      string      `json:"id" validate:"required"`
+		ID      ID          `json:"id" validate:"required"`
 		Code    int         `json:"code" validate:"required"`
 		Message string      `json:"message,omitempty"`
 		Method  pb.Method   `json:"method,omitempty"`
@@ -129,39 +127,4 @@ func WithHeartbeat(d time.Duration) option {
 	return func(o *options) {
 		o.heartbeat = d
 	}
-}
-
-var store = &pool{store: make(map[string]struct{}, 0)}
-
-// pool .
-type pool struct {
-	lk    sync.RWMutex
-	store map[string]struct{}
-}
-
-// verifySession .
-func (pool *pool) verifySession(id string) bool {
-	var active bool
-	pool.lk.RLock()
-	_, active = pool.store[id]
-	pool.lk.RUnlock()
-	return active
-}
-
-// newSession .
-func (pool *pool) createSession() string {
-	id := uuid.New().String()
-
-	pool.lk.Lock()
-	pool.store[id] = struct{}{}
-	pool.lk.Unlock()
-
-	return id
-}
-
-// dropSession .
-func (pool *pool) dropSession(id string) {
-	pool.lk.Lock()
-	delete(pool.store, id)
-	pool.lk.Unlock()
 }

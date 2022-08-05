@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"library"
 	"library/websocket/pb"
 
 	"github.com/charlesbases/logger"
@@ -38,9 +37,12 @@ type session struct {
 	header        metadata
 	subscriptions map[subject]bool
 
-	request   chan *WebSocketRequest   // 请求
-	response  chan *WebSocketResponse  // 响应
-	broadcast chan *WebSocketBroadcast // 广播
+	// request 请求
+	request chan *WebSocketRequest
+	// response 相应
+	response chan *WebSocketResponse
+	// broadcast 广播推送
+	broadcast chan *WebSocketBroadcast
 
 	ctx  context.Context
 	conn *websocket.Conn
@@ -96,7 +98,6 @@ func (session *session) serve() {
 			}
 		case event, ok := <-session.broadcast:
 			if ok {
-				event.Time = library.Now()
 				session.event(event)
 			}
 		case <-session.closing:
@@ -216,7 +217,7 @@ func (sub subject) verify(tar subject) bool {
 	return false
 }
 
-// event . TODO
+// event .
 func (session *session) event(event *WebSocketBroadcast) {
 	if session.ready {
 		session.lock.RLock()
@@ -254,34 +255,53 @@ func (session *session) subscribe(params *json.RawMessage) {
 		return
 	}
 
+	var subscribers = make([]*subscriber, 0, len(subjects))
+
 	session.lock.Lock()
 	for _, subject := range subjects {
 		session.subscriptions[subject] = true
+
+		subscribers = append(subscribers, &subscriber{
+			sessionID: session.id,
+			subject:   subject,
+			onEvent:   session.broadcast,
+		})
 	}
 	session.lock.Unlock()
+
+	go station.Subscribe(subscribers...)
 
 	session.normal(pb.Method_SUBSCRIBE, session.topics())
 }
 
 // unsubscribe .
 func (session *session) unsubscribe(params *json.RawMessage) {
-	var topics = make([]subject, 0)
+	var subjects = make([]subject, 0)
 
-	if err := json.Unmarshal(*params, &topics); err != nil {
+	if err := json.Unmarshal(*params, &subjects); err != nil {
 		logger.Errorf("[WebSocketID: %s] unsubscribe failed. %v", session.id, err)
 		session.error(http.StatusBadRequest, err.Error())
 		session.close()
 		return
 	}
 
+	var subscribers = make([]*subscriber, 0, len(subjects))
+
 	session.lock.Lock()
-	for _, subject := range topics {
+	for _, subject := range subjects {
 		delete(session.subscriptions, subject)
+
+		subscribers = append(subscribers, &subscriber{
+			sessionID: session.id,
+			subject:   subject,
+			onEvent:   session.broadcast,
+		})
 	}
 	session.lock.Unlock()
 
-	session.normal(pb.Method_UNSUBSCRIBE, session.topics())
+	go station.Unsubscribe(subscribers...)
 
+	session.normal(pb.Method_UNSUBSCRIBE, session.topics())
 }
 
 // close exec session.disconnect

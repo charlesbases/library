@@ -115,7 +115,7 @@ func (stream *stream) connect(w http.ResponseWriter, r *http.Request) error {
 	}
 	defer conn.Close()
 
-	session := stream.session(r, conn)
+	session := stream.newSession(r, conn)
 	logger.Debugf("[WebSocketID: %s] connected", session.id)
 
 	session.ping()
@@ -124,7 +124,7 @@ func (stream *stream) connect(w http.ResponseWriter, r *http.Request) error {
 }
 
 // session .
-func (stream *stream) session(r *http.Request, conn *websocket.Conn) *session {
+func (stream *stream) newSession(r *http.Request, conn *websocket.Conn) *session {
 	return &session{
 		id:            store.createSession(),
 		header:        stream.parseHeader(r),

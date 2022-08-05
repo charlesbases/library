@@ -28,15 +28,15 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin:      func(r *http.Request) bool { return true },
 }
 
-type ID string
+type sessionID string
 
 type metadata map[string]string
 
 // session .
 type session struct {
-	id            ID
+	id            sessionID
 	header        metadata
-	subscriptions map[topic]bool
+	subscriptions map[subject]bool
 
 	request   chan *WebSocketRequest   // 请求
 	response  chan *WebSocketResponse  // 响应
@@ -199,19 +199,19 @@ func (session *session) error(errCode int, errMsg string) {
 	}
 }
 
-type topic string
+type subject string
 
 // verify .
-func (sub topic) verify(t topic) bool {
+func (sub subject) verify(tar subject) bool {
 	if sub == "*" {
 		return true
 	}
-	if sub == t {
+	if sub == tar {
 		return true
 	}
 	if strings.HasSuffix(string(sub), "*") {
 		prefix := strings.TrimSuffix(string(sub), "*")
-		return strings.HasPrefix(string(t), prefix)
+		return strings.HasPrefix(string(tar), prefix)
 	}
 	return false
 }
@@ -220,8 +220,8 @@ func (sub topic) verify(t topic) bool {
 func (session *session) event(event *WebSocketBroadcast) {
 	if session.ready {
 		session.lock.RLock()
-		for topic := range session.subscriptions {
-			if topic.verify(event.Topic) {
+		for subject := range session.subscriptions {
+			if subject.verify(event.Subject) {
 				session.normal(pb.Method_BROADCAST, event)
 				break
 			}
@@ -231,12 +231,12 @@ func (session *session) event(event *WebSocketBroadcast) {
 }
 
 // topics .
-func (session *session) topics() []topic {
+func (session *session) topics() []subject {
 	session.lock.RLock()
 
-	var topics = make([]topic, 0, len(session.subscriptions))
-	for topic := range session.subscriptions {
-		topics = append(topics, topic)
+	var topics = make([]subject, 0, len(session.subscriptions))
+	for subject := range session.subscriptions {
+		topics = append(topics, subject)
 	}
 	session.lock.RUnlock()
 
@@ -245,9 +245,9 @@ func (session *session) topics() []topic {
 
 // subscribe .
 func (session *session) subscribe(params *json.RawMessage) {
-	var topics = make([]topic, 0)
+	var subjects = make([]subject, 0)
 
-	if err := json.Unmarshal(*params, &topics); err != nil {
+	if err := json.Unmarshal(*params, &subjects); err != nil {
 		logger.Errorf("[WebSocketID: %s] subscribe failed. %v", session.id, err)
 		session.error(http.StatusBadRequest, err.Error())
 		session.close()
@@ -255,8 +255,8 @@ func (session *session) subscribe(params *json.RawMessage) {
 	}
 
 	session.lock.Lock()
-	for _, topic := range topics {
-		session.subscriptions[topic] = true
+	for _, subject := range subjects {
+		session.subscriptions[subject] = true
 	}
 	session.lock.Unlock()
 
@@ -265,7 +265,7 @@ func (session *session) subscribe(params *json.RawMessage) {
 
 // unsubscribe .
 func (session *session) unsubscribe(params *json.RawMessage) {
-	var topics = make([]topic, 0)
+	var topics = make([]subject, 0)
 
 	if err := json.Unmarshal(*params, &topics); err != nil {
 		logger.Errorf("[WebSocketID: %s] unsubscribe failed. %v", session.id, err)
@@ -275,8 +275,8 @@ func (session *session) unsubscribe(params *json.RawMessage) {
 	}
 
 	session.lock.Lock()
-	for _, topic := range topics {
-		delete(session.subscriptions, topic)
+	for _, subject := range topics {
+		delete(session.subscriptions, subject)
 	}
 	session.lock.Unlock()
 
@@ -314,16 +314,16 @@ func (session *session) disconnect() {
 	})
 }
 
-var store = &pool{store: make(map[ID]struct{}, 0)}
+var store = &pool{store: make(map[sessionID]struct{}, 0)}
 
 // pool .
 type pool struct {
 	lk    sync.RWMutex
-	store map[ID]struct{}
+	store map[sessionID]struct{}
 }
 
 // verifySession .
-func (pool *pool) verifySession(id ID) bool {
+func (pool *pool) verifySession(id sessionID) bool {
 	pool.lk.RLock()
 	_, found := pool.store[id]
 	pool.lk.RUnlock()
@@ -332,8 +332,8 @@ func (pool *pool) verifySession(id ID) bool {
 }
 
 // newSession .
-func (pool *pool) createSession() ID {
-	id := ID(uuid.New().String())
+func (pool *pool) createSession() sessionID {
+	id := sessionID(uuid.New().String())
 
 	pool.lk.Lock()
 	pool.store[id] = struct{}{}
@@ -343,7 +343,7 @@ func (pool *pool) createSession() ID {
 }
 
 // dropSession .
-func (pool *pool) dropSession(id ID) {
+func (pool *pool) dropSession(id sessionID) {
 	pool.lk.Lock()
 	delete(pool.store, id)
 	pool.lk.Unlock()

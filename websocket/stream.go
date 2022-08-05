@@ -28,13 +28,13 @@ type stream struct {
 type (
 	// WebSocketRequest .
 	WebSocketRequest struct {
-		ID     ID               `json:"id" validate:"required"`
+		ID     sessionID        `json:"id" validate:"required"`
 		Method pb.Method        `json:"method" validate:"required"`
 		Params *json.RawMessage `json:"params,omitempty"`
 	}
 	// WebSocketResponse .
 	WebSocketResponse struct {
-		ID      ID          `json:"id" validate:"required"`
+		ID      sessionID   `json:"id" validate:"required"`
 		Code    int         `json:"code" validate:"required"`
 		Message string      `json:"message,omitempty"`
 		Method  pb.Method   `json:"method,omitempty"`
@@ -42,9 +42,9 @@ type (
 	}
 	// WebSocketBroadcast .
 	WebSocketBroadcast struct {
-		Topic topic       `json:"topic" validate:"required"`
-		Time  string      `json:"time" validate:"required"`
-		Data  interface{} `json:"data" validate:"required"`
+		Subject subject     `json:"subject" validate:"required"`
+		Time    string      `json:"time" validate:"required"`
+		Data    interface{} `json:"data" validate:"required"`
 	}
 )
 
@@ -128,7 +128,7 @@ func (stream *stream) session(r *http.Request, conn *websocket.Conn) *session {
 	return &session{
 		id:            store.createSession(),
 		header:        stream.parseHeader(r),
-		subscriptions: make(map[topic]bool),
+		subscriptions: make(map[subject]bool),
 		request:       make(chan *WebSocketRequest, stream.opts.buffer),
 		response:      make(chan *WebSocketResponse, stream.opts.buffer),
 		broadcast:     make(chan *WebSocketBroadcast, stream.opts.buffer),

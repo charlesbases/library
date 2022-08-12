@@ -24,6 +24,13 @@ type db struct {
 	gormDB *gorm.DB
 }
 
+// Init init defaultDB
+func Init(fn Dialector, opts ...database.Option) {
+	once.Do(func() {
+		defaultDB = New(fn, opts...)
+	})
+}
+
 // New new db
 func New(fn Dialector, opts ...database.Option) *db {
 	var options = new(database.Options)
@@ -39,27 +46,22 @@ func New(fn Dialector, opts ...database.Option) *db {
 		logger.Fatalf("database connect failed. %v", err)
 	}
 
+	sqlDB, err := gormDB.DB()
+	if err != nil {
+		logger.Fatalf("database connect failed. %v", err)
+	}
+
+	if err := sqlDB.Ping(); err != nil {
+		logger.Fatalf("database ping failed. %v", err)
+	}
+
+	sqlDB.SetMaxIdleConns(options.MaxIdleConns)
+	sqlDB.SetMaxOpenConns(options.MaxOpenConns)
+
+	sqlDB.SetConnMaxIdleTime(options.ConnMaxIdleTime)
+	sqlDB.SetConnMaxLifetime(options.ConnMaxLifetime)
+
 	return &db{gormDB: gormDB}
-}
-
-// Init init defaultDB
-func Init(fn Dialector, opts ...database.Option) {
-	once.Do(func() {
-		var options = database.DefaultOptions()
-		for _, opt := range opts {
-			opt(options)
-		}
-		if options.Timeout == 0 {
-			options.Timeout = database.DefaultTimeout
-		}
-
-		gormDB, err := gorm.Open(fn.Dialector(options), &gorm.Config{Logger: gormlogger(fn.Name(), options.ShowSQL)})
-		if err != nil {
-			logger.Fatalf("database connect failed. %v", err)
-		}
-
-		defaultDB = &db{gormDB: gormDB}
-	})
 }
 
 // DB .

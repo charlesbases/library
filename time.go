@@ -1,6 +1,9 @@
 package library
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 const (
 	// DefaultTimeFormatLayout 默认时间格式
@@ -36,4 +39,19 @@ func ParseTimeStr2Time(s string) time.Time {
 // ParseTimeStr2Timestamp 时间格式化字符串转毫秒时间戳
 func ParseTimeStr2Timestamp(s string) int64 {
 	return ParseTime2Timestamp(ParseTimeStr2Time(s))
+}
+
+type Duration time.Duration
+
+// Shrink will decrease the duration by comparing with context's timeout duration
+// and return new timeout\context\CancelFunc.
+func (d Duration) Shrink(c context.Context) (Duration, context.Context, context.CancelFunc) {
+	if deadline, ok := c.Deadline(); ok {
+		if ctimeout := time.Until(deadline); ctimeout < time.Duration(d) {
+			// deliver small timeout
+			return Duration(ctimeout), c, func() {}
+		}
+	}
+	ctx, cancel := context.WithTimeout(c, time.Duration(d))
+	return d, ctx, cancel
 }

@@ -22,7 +22,7 @@ func Join(ms ...Metadata) Metadata {
 	return out
 }
 
-// WithContext .
+// WithContext creates a new context with m attached
 func (m Metadata) WithContext(ctx context.Context) context.Context {
 	return context.WithValue(ctx, ctxkey{}, m)
 }
@@ -43,7 +43,7 @@ func SetContext(ctx context.Context, key string, val interface{}) context.Contex
 	return m.WithContext(ctx)
 }
 
-// Int64 .
+// Int64 get int64 value from metadata in context
 func Int64(ctx context.Context, key string) int64 {
 	if m, ok := FromContext(ctx); ok {
 		val, _ := m[key].(int64)
@@ -52,7 +52,7 @@ func Int64(ctx context.Context, key string) int64 {
 	return 0
 }
 
-// Bool .
+// Bool get bool value from metadata in context
 func Bool(ctx context.Context, key string) bool {
 	if m, ok := FromContext(ctx); ok {
 		val, _ := m[key].(bool)
@@ -61,7 +61,7 @@ func Bool(ctx context.Context, key string) bool {
 	return false
 }
 
-// String .
+// String get string value from metadata in context
 func String(ctx context.Context, key string) string {
 	if m, ok := FromContext(ctx); ok {
 		val, _ := m[key].(string)
@@ -70,7 +70,7 @@ func String(ctx context.Context, key string) string {
 	return ""
 }
 
-// Value .
+// Value get value from metadata in context return nil if not found
 func Value(ctx context.Context, key string) interface{} {
 	if m, ok := FromContext(ctx); ok {
 		return m[key]

@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	logger "library/logger/seelog"
-
+	"github.com/charlesbases/logger"
 	"github.com/go-redis/redis/v8"
 
 	"library/store"

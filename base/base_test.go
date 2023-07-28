@@ -7,23 +7,60 @@ import (
 )
 
 func TestBin(t *testing.T) {
-	bin := NewBinary([]byte{200, 210, 220, 230, 240, 250})
-	fmt.Println("十六进制:", bin.Hex())
+	bin := NewBinary([]byte{255, 255, 255, 255, 255, 255, 255, 255})
+	fmt.Println("二进制:", bin.Display())
+	fmt.Println("十进制:", bin.Decimal())
+	fmt.Println("十六进制:", bin.Hexadecimal())
 
 	var loop int = 1e6
 
 	{
 		var start = time.Now()
 		for i := 0; i < loop; i++ {
-			bin.Hex()
+			bin.Decimal()
 		}
-		fmt.Println("1 >>>>:", time.Since(start)) // 271.329953ms
+		fmt.Println("1 >>>>:", time.Since(start)) // 112.864827ms
+	}
+
+	{
+		var start = time.Now()
+		for i := 0; i < loop; i++ {
+			bin.Hexadecimal()
+		}
+		fmt.Println("2 >>>>:", time.Since(start)) // 271.329953ms
+	}
+}
+
+func TestDec(t *testing.T) {
+	var dec = NewDecimal(18446744073709551615)
+	fmt.Println("二进制:", string(dec.Binary()))
+	fmt.Println("十进制:", dec.Display())
+	fmt.Println("十六进制:", dec.Hexadecimal())
+
+	var loop int = 1e6
+
+	{
+		var start = time.Now()
+		for i := 0; i < loop; i++ {
+			dec.Binary()
+		}
+		fmt.Println("1 >>>>:", time.Since(start)) // 112.864827ms
+	}
+
+	{
+		var start = time.Now()
+		for i := 0; i < loop; i++ {
+			dec.Hexadecimal()
+		}
+		fmt.Println("2 >>>>:", time.Since(start)) // 271.329953ms
 	}
 }
 
 func TestHex(t *testing.T) {
-	hex := NewHex("0xc8d2dce6f0fa")
+	var hex = NewHexadecimal("0xffffffffffffffff")
 	fmt.Println("二进制:", hex.Binary())
+	fmt.Println("十进制:", hex.Decimal())
+	fmt.Println("十六进制:", hex.Display())
 
 	var loop int = 1e6
 
@@ -32,7 +69,15 @@ func TestHex(t *testing.T) {
 		for i := 0; i < loop; i++ {
 			hex.Binary()
 		}
-		fmt.Println("1 >>>>:", time.Since(start)) // 271.329953ms
+		fmt.Println("1 >>>>:", time.Since(start)) // 112.864827ms
+	}
+
+	{
+		var start = time.Now()
+		for i := 0; i < loop; i++ {
+			hex.Decimal()
+		}
+		fmt.Println("2 >>>>:", time.Since(start)) // 271.329953ms
 	}
 }
 

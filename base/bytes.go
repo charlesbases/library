@@ -2,14 +2,6 @@ package base
 
 import "unsafe"
 
-type bytes []byte
-
-// bits 8 bit
-var bits = [8]uint8{
-	0x1 /* 00000001 */, 0x1 << 1 /* 00000010 */, 0x1 << 2 /* 00000100 */, 0x1 << 3, /* 00001000 */
-	0x1 << 4 /* 00010000 */, 0x1 << 5 /* 00100000 */, 0x1 << 6 /* 01000000 */, 0x1 << 7, /* 10000000 */
-}
-
 // bin2Hex binary to hexadecimal
 var bin2Hex = map[uint8]byte{
 	0x0: '0', 0x1: '1', 0x2: '2', 0x3: '3', 0x4: '4', 0x5: '5', 0x6: '6', 0x7: '7',
@@ -23,6 +15,26 @@ var hex2Bin = map[byte]uint8{
 	'A': 0xa, 'B': 0xb, 'C': 0xc, 'D': 0xd, 'E': 0xe, 'F': 0xf,
 }
 
+// hex2Dec hexadecimal to decimal
+var hex2Dec = map[byte]uint64{
+	'0': 16, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, 'a': 10, 'b': 11,
+	'c': 12, 'd': 13, 'e': 14, 'f': 15, 'A': 10, 'B': 11, 'C': 12, 'D': 13, 'E': 14, 'F': 15,
+}
+
+// dec2Bin decimal to binary
+var dec2Bin = [2]uint8{'0', '1'}
+
+// dec2Hex decimal to hexadecimal
+var dec2Hex = [16]uint8{'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'}
+
+// bits 8 bit
+var bits = [8]uint8{
+	0x1 /* 00000001 */, 0x1 << 1 /* 00000010 */, 0x1 << 2 /* 00000100 */, 0x1 << 3, /* 00001000 */
+	0x1 << 4 /* 00010000 */, 0x1 << 5 /* 00100000 */, 0x1 << 6 /* 01000000 */, 0x1 << 7, /* 10000000 */
+}
+
+type bytes []byte
+
 func (bs *bytes) String() string {
 	return *bytes2String(bs)
 }
@@ -31,9 +43,7 @@ func (bs *bytes) String() string {
 func (b *bytes) reverse() {
 	var length = b.len()
 	for i := 0; i < length>>1; i++ {
-		(*b)[i] = (*b)[i] ^ (*b)[length-i-1]
-		(*b)[length-i-1] = (*b)[i] ^ (*b)[length-i-1]
-		(*b)[i] = (*b)[i] ^ (*b)[length-i-1]
+		(*b)[i], (*b)[length-i-1] = (*b)[length-i-1], (*b)[i]
 	}
 }
 

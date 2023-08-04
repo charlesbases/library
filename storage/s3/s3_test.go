@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"os"
@@ -9,6 +10,8 @@ import (
 
 	"github.com/charlesbases/logger"
 
+	"github.com/charlesbases/library"
+	"github.com/charlesbases/library/sonyflake"
 	"github.com/charlesbases/library/storage"
 )
 
@@ -37,19 +40,21 @@ var (
 func TestS3Client_PutObject(t *testing.T) {
 	cli, _ := clientBOS()
 
+	ctx := context.WithValue(context.Background(), library.HeaderTraceID, sonyflake.NextID())
+
 	// string
 	{
-		if err := cli.PutObject(storage.InputString(mxdata, key("simple/string"), time.Now().String())); err != nil {
+		if err := cli.PutObject(storage.InputString(mxdata, key("simple/string"), time.Now().String()), func(o *storage.PutOptions) { o.Context = ctx }); err != nil {
 			logger.Fatalf("string ==> %s", err.Error())
 		}
 	}
 
 	// number
 	{
-		if err := cli.PutObject(storage.InputNumber(mxdata, key("simple/number.int"), time.Now().Second())); err != nil {
+		if err := cli.PutObject(storage.InputNumber(mxdata, key("simple/number.int"), time.Now().Second()), func(o *storage.PutOptions) { o.Context = ctx }); err != nil {
 			logger.Fatalf("number ==> %s", err.Error())
 		}
-		if err := cli.PutObject(storage.InputNumber(mxdata, key("simple/number.folat"), math.Pi)); err != nil {
+		if err := cli.PutObject(storage.InputNumber(mxdata, key("simple/number.folat"), math.Pi), func(o *storage.PutOptions) { o.Context = ctx }); err != nil {
 			logger.Fatalf("number ==> %s", err.Error())
 		}
 		// if err := cli.PutObject(storage.InputNumber(mxdata, key("simple/number.string"), time.Now())); err != nil {
@@ -59,7 +64,7 @@ func TestS3Client_PutObject(t *testing.T) {
 
 	// boolean
 	{
-		if err := cli.PutObject(storage.InputBoolean(mxdata, key("simple/boolean"), true)); err != nil {
+		if err := cli.PutObject(storage.InputBoolean(mxdata, key("simple/boolean"), true), func(o *storage.PutOptions) { o.Context = ctx }); err != nil {
 			logger.Fatalf("boolean ==> %s", err.Error())
 		}
 	}
@@ -67,14 +72,14 @@ func TestS3Client_PutObject(t *testing.T) {
 	// json
 	{
 		var v = map[string]string{"date": time.Now().String()}
-		if err := cli.PutObject(storage.InputMarshalJson(mxdata, key("simple/object.json"), &v)); err != nil {
+		if err := cli.PutObject(storage.InputMarshalJson(mxdata, key("simple/object.json"), &v), func(o *storage.PutOptions) { o.Context = ctx }); err != nil {
 			logger.Fatalf("object.json ==> %s", err.Error())
 		}
 	}
 
 	// file
 	{
-		if err := cli.PutObject(storage.InputFile(mxdata, key("simple/file"), "os.go")); err != nil {
+		if err := cli.PutObject(storage.InputFile(mxdata, key("simple/file"), "os.go"), func(o *storage.PutOptions) { o.Context = ctx }); err != nil {
 			logger.Fatalf("file ==> %s", err.Error())
 		}
 	}
@@ -87,7 +92,7 @@ func TestS3Client_PutObject(t *testing.T) {
 		}
 		defer f.Close()
 
-		if err := cli.PutObject(storage.InputReadSeeker(mxdata, key("simple/readseeker"), f)); err != nil {
+		if err := cli.PutObject(storage.InputReadSeeker(mxdata, key("simple/readseeker"), f), func(o *storage.PutOptions) { o.Context = ctx }); err != nil {
 			logger.Fatalf("readseeker ==> %s", err.Error())
 		}
 	}

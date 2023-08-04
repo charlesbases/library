@@ -21,7 +21,7 @@ func TestGorm(t *testing.T) {
 	var count int64
 	// With TraceID
 	{
-		ctx := context.WithValue(context.Background(), library.TraceID, sonyflake.NextID())
+		ctx := context.WithValue(context.Background(), library.HeaderTraceID, sonyflake.NextID())
 		if err := db.WithContext(ctx).Table("user_info").Count(&count).Error; err != nil {
 			panic(err)
 		}

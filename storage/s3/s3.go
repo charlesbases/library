@@ -17,9 +17,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/charlesbases/logger"
 
 	"github.com/charlesbases/library/compress/gzip"
+	"github.com/charlesbases/library/logger"
 	"github.com/charlesbases/library/rootpath"
 	"github.com/charlesbases/library/storage"
 )
@@ -62,7 +62,7 @@ func (client *s3Client) upload(ctx context.Context, input *s3manager.UploadInput
 	_, err := client.uploader.UploadWithContext(ctx, input)
 	if err != nil {
 		err = decodeAwsErr(err)
-		logger.Errorf("[aws-s3] put(%s.%s) failed. '%s'", aws.StringValue(input.Bucket), aws.StringValue(input.Key), err.Error())
+		logger.ErrorfWithContext(ctx, "[aws-s3] put(%s.%s) failed. '%s'", aws.StringValue(input.Bucket), aws.StringValue(input.Key), err.Error())
 		return err
 	}
 	return nil
@@ -81,7 +81,7 @@ func (client *s3Client) PutObject(input storage.ObjectInput, opts ...func(o *sto
 		return err
 	}
 
-	logger.Debugf("[aws-s3] put(%s.%s)", input.Bucket(), input.Key())
+	logger.DebugfWithContext(popts.Context, "[aws-s3] put(%s.%s)", input.Bucket(), input.Key())
 
 	// close body
 	defer input.Close()
@@ -113,7 +113,7 @@ func (client *s3Client) PutFolder(bucket string, prefix string, root string, opt
 		return errors.New("the prefix must end in '/'.")
 	}
 
-	logger.Debugf("[aws-s3] put(%s.%s.*)", bucket, prefix)
+	logger.DebugfWithContext(popts.Context, "[aws-s3] put(%s.%s.*)", bucket, prefix)
 
 	f := storage.NewFactory()
 
@@ -122,7 +122,7 @@ func (client *s3Client) PutFolder(bucket string, prefix string, root string, opt
 		if key, ok := v.(*string); ok {
 			input := storage.InputFile(bucket, filepath.ToSlash(filepath.Join(prefix, strings.TrimPrefix(*key, root))), *key)
 			if err := input.Error(); err != nil {
-				logger.Errorf("[aws-s3] put(%s.%s.*)", input.Bucket(), input.Key(), err.Error())
+				logger.ErrorfWithContext(popts.Context, "[aws-s3] put(%s.%s.*)", input.Bucket(), input.Key(), err.Error())
 			} else {
 				client.upload(popts.Context, &s3manager.UploadInput{
 					Key:         aws.String(input.Key()),
@@ -153,7 +153,7 @@ func (client *s3Client) download(ctx context.Context, w io.WriterAt, input *s3.G
 	_, err := client.downloader.DownloadWithContext(ctx, w, input)
 	if err != nil {
 		err = decodeAwsErr(err)
-		logger.Errorf("[aws-s3] get(%s.%s) failed. '%s'", aws.StringValue(input.Bucket), aws.StringValue(input.Key), err.Error())
+		logger.ErrorfWithContext(ctx, "[aws-s3] get(%s.%s) failed. '%s'", aws.StringValue(input.Bucket), aws.StringValue(input.Key), err.Error())
 		return err
 	}
 	return nil
@@ -169,7 +169,7 @@ func (client *s3Client) GetObject(bucket string, key string, opts ...func(o *sto
 		return nil, err
 	}
 
-	logger.Debugf("[aws-s3] get(%s.%s)", bucket, key)
+	logger.DebugfWithContext(gopts.Context, "[aws-s3] get(%s.%s)", bucket, key)
 
 	input := &s3.GetObjectInput{
 		Bucket:    aws.String(bucket),
@@ -182,7 +182,7 @@ func (client *s3Client) GetObject(bucket string, key string, opts ...func(o *sto
 			s3Output, err := client.s3.GetObjectWithContext(gopts.Context, input)
 			if err != nil {
 				err = decodeAwsErr(err)
-				logger.Errorf("[aws-s3] get(%s.%s) failed. '%s'", bucket, key, err.Error())
+				logger.ErrorfWithContext(gopts.Context, "[aws-s3] get(%s.%s) failed. '%s'", bucket, key, err.Error())
 				return err
 			}
 			return hook(storage.OutputReadCloser(bucket, key, aws.StringValue(s3Output.ContentType), s3Output.Body))
@@ -254,11 +254,13 @@ func (client *s3Client) GetObjectsWithIterator(bucket string, prefix string, ite
 		return err
 	}
 
-	logger.Debugf("[aws-s3] get(%s.%s.*)", bucket, prefix)
+	var lopts = storage.NewListOptions(opts...)
 
-	if err := client.listobjects(bucket, prefix, storage.NewListOptions(opts...), iterator); err != nil {
+	logger.DebugfWithContext(lopts.Context, "[aws-s3] get(%s.%s.*)", bucket, prefix)
+
+	if err := client.listobjects(bucket, prefix, lopts, iterator); err != nil {
 		err = decodeAwsErr(err)
-		logger.Errorf("[aws-s3] get(%s.%s.*) failed. '%s'", bucket, prefix, err.Error())
+		logger.ErrorfWithContext(lopts.Context, "[aws-s3] get(%s.%s.*) failed. '%s'", bucket, prefix, err.Error())
 		return err
 	}
 	return nil
@@ -274,7 +276,7 @@ func (client *s3Client) DelObject(bucket string, key string, opts ...func(o *sto
 		return err
 	}
 
-	logger.Debugf("[aws-s3] del(%s.%s)", bucket, key)
+	logger.DebugfWithContext(dopts.Context, "[aws-s3] del(%s.%s)", bucket, key)
 
 	if _, err := client.s3.DeleteObjectWithContext(dopts.Context, &s3.DeleteObjectInput{
 		Bucket:    aws.String(bucket),
@@ -282,7 +284,7 @@ func (client *s3Client) DelObject(bucket string, key string, opts ...func(o *sto
 		VersionId: aws.String(dopts.VersionID),
 	}); err != nil {
 		err = decodeAwsErr(err)
-		logger.Errorf("[aws-s3] del(%s.%s)[key] failed. '%s'", bucket, key, err.Error())
+		logger.ErrorfWithContext(dopts.Context, "[aws-s3] del(%s.%s)[key] failed. '%s'", bucket, key, err.Error())
 		return err
 	}
 	return nil
@@ -298,7 +300,7 @@ func (client *s3Client) DelPrefix(bucket string, prefix string, opts ...func(o *
 		return err
 	}
 
-	logger.Debugf("[aws-s3] del(%s.%s.*)", bucket, prefix)
+	logger.DebugfWithContext(dopts.Context, "[aws-s3] del(%s.%s.*)", bucket, prefix)
 
 	f := storage.NewFactory()
 	f.Flowline(func(v interface{}) {
@@ -319,7 +321,7 @@ func (client *s3Client) DelPrefix(bucket string, prefix string, opts ...func(o *
 			})
 			if err != nil {
 				f.Closing()
-				logger.Errorf("[aws-s3] del(%s.%s.*) failed. '%s'", bucket, prefix, decodeAwsErr(err).Error())
+				logger.ErrorfWithContext(dopts.Context, "[aws-s3] del(%s.%s.*) failed. '%s'", bucket, prefix, decodeAwsErr(err).Error())
 			}
 		}
 	})
@@ -337,7 +339,7 @@ func (client *s3Client) DelPrefix(bucket string, prefix string, opts ...func(o *
 	)
 	if err != nil {
 		f.Closing()
-		logger.Errorf("[aws-s3] del(%s.%s.*) failed. '%s'", bucket, prefix, decodeAwsErr(err).Error())
+		logger.ErrorfWithContext(dopts.Context, "[aws-s3] del(%s.%s.*) failed. '%s'", bucket, prefix, decodeAwsErr(err).Error())
 	}
 
 	f.Wait()
@@ -348,7 +350,7 @@ func (client *s3Client) DelPrefix(bucket string, prefix string, opts ...func(o *
 func (client *s3Client) copyobject(ctx context.Context, srcBucket, srcKey string, input *s3.CopyObjectInput) error {
 	if _, err := client.s3.CopyObjectWithContext(ctx, input); err != nil {
 		err = decodeAwsErr(err)
-		logger.Errorf(`[aws-s3] copy("%s.%s" -> "%s.%s") failed. "%s"`, srcBucket, srcKey, aws.StringValue(input.Bucket), aws.StringValue(input.Key), err.Error())
+		logger.ErrorfWithContext(ctx, `[aws-s3] copy("%s.%s" -> "%s.%s") failed. "%s"`, srcBucket, srcKey, aws.StringValue(input.Bucket), aws.StringValue(input.Key), err.Error())
 		return err
 	}
 	return nil
@@ -376,7 +378,7 @@ func (client *s3Client) Copy(src, dst storage.Position, opts ...func(o *storage.
 
 	switch src.IsPrefix() {
 	case false:
-		logger.Debugf(`[aws-s3] copy("%s.%s" -> "%s.%s")`, src.Bucket(), src.Path(), dst.Bucket(), dst.Path())
+		logger.DebugfWithContext(copts.Context, `[aws-s3] copy("%s.%s" -> "%s.%s")`, src.Bucket(), src.Path(), dst.Bucket(), dst.Path())
 
 		return client.copyobject(copts.Context, src.Bucket(), src.Path(),
 			&s3.CopyObjectInput{
@@ -385,7 +387,7 @@ func (client *s3Client) Copy(src, dst storage.Position, opts ...func(o *storage.
 				Key:        aws.String(dst.Path()),
 			})
 	default:
-		logger.Debugf(`[aws-s3] copy("%s.%s.*" -> "%s.%s.*")`, src.Bucket(), src.Path(), dst.Bucket(), dst.Path())
+		logger.DebugfWithContext(copts.Context, `[aws-s3] copy("%s.%s.*" -> "%s.%s.*")`, src.Bucket(), src.Path(), dst.Bucket(), dst.Path())
 
 		f := storage.NewFactory()
 		f.Flowline(func(v interface{}) {
@@ -415,7 +417,7 @@ func (client *s3Client) Copy(src, dst storage.Position, opts ...func(o *storage.
 			}); err != nil {
 			f.Closing()
 			err = decodeAwsErr(err)
-			logger.Errorf(`[aws-s3] copy("%s.%s.*" -> "%s.%s.*") failed. "%s"`, src.Bucket(), src.Path(), dst.Bucket(), dst.Path(), err.Error())
+			logger.ErrorfWithContext(copts.Context, `[aws-s3] copy("%s.%s.*" -> "%s.%s.*") failed. "%s"`, src.Bucket(), src.Path(), dst.Bucket(), dst.Path(), err.Error())
 			return err
 		}
 		return nil
@@ -518,17 +520,17 @@ func (client *s3Client) Compress(bucket string, key string, dst io.Writer, opts 
 	switch strings.HasSuffix(key, "/") {
 	// object
 	case false:
-		logger.Debugf("[aws-s3] compress(%s.%s)", bucket, key)
+		logger.DebugfWithContext(lopts.Context, "[aws-s3] compress(%s.%s)", bucket, key)
 
 		head, err := client.headObject(bucket, key, &storage.GetOptions{Context: lopts.Context})
 		if err != nil {
 			err = decodeAwsErr(err)
-			logger.Errorf("[aws-s3] compress(%s.%s) failed. '%s'", bucket, key, err.Error())
+			logger.ErrorfWithContext(lopts.Context, "[aws-s3] compress(%s.%s) failed. '%s'", bucket, key, err.Error())
 			return err
 		}
 		if head == nil {
 			err = storage.ErrNoSuchKey
-			logger.Errorf("[aws-s3] compress(%s.%s) failed. '%s'", bucket, key, err.Error())
+			logger.ErrorfWithContext(lopts.Context, "[aws-s3] compress(%s.%s) failed. '%s'", bucket, key, err.Error())
 			return err
 		}
 
@@ -539,7 +541,7 @@ func (client *s3Client) Compress(bucket string, key string, dst io.Writer, opts 
 					Key:    aws.String(key),
 				}); err != nil {
 				err = decodeAwsErr(err)
-				logger.Errorf("[aws-s3] compress(%s.%s) failed. '%s'", bucket, key, err.Error())
+				logger.ErrorfWithContext(lopts.Context, "[aws-s3] compress(%s.%s) failed. '%s'", bucket, key, err.Error())
 				return err
 			}
 			return nil
@@ -550,7 +552,7 @@ func (client *s3Client) Compress(bucket string, key string, dst io.Writer, opts 
 			})
 	// prefix
 	default:
-		logger.Debugf("[aws-s3] compress(%s.%s.*)", bucket, key)
+		logger.DebugfWithContext(lopts.Context, "[aws-s3] compress(%s.%s.*)", bucket, key)
 
 		f := storage.NewFactory()
 		f.Flowline(func(v interface{}) {
@@ -559,7 +561,7 @@ func (client *s3Client) Compress(bucket string, key string, dst io.Writer, opts 
 					head, err := client.headObject(bucket, aws.StringValue(objkey), &storage.GetOptions{Context: lopts.Context})
 					if err != nil {
 						err = decodeAwsErr(err)
-						logger.Errorf("[aws-s3] compress(%s.%s) failed. '%s'", bucket, aws.StringValue(objkey), err.Error())
+						logger.ErrorfWithContext(lopts.Context, "[aws-s3] compress(%s.%s) failed. '%s'", bucket, aws.StringValue(objkey), err.Error())
 						return
 					}
 
@@ -571,7 +573,7 @@ func (client *s3Client) Compress(bucket string, key string, dst io.Writer, opts 
 							}); err != nil {
 							f.Closing()
 							err = decodeAwsErr(err)
-							logger.Errorf("[aws-s3] compress(%s.%s.*) failed. '%s'", bucket, aws.StringValue(objkey), err.Error())
+							logger.ErrorfWithContext(lopts.Context, "[aws-s3] compress(%s.%s.*) failed. '%s'", bucket, aws.StringValue(objkey), err.Error())
 							return err
 						}
 						return nil
@@ -598,7 +600,7 @@ func (client *s3Client) Compress(bucket string, key string, dst io.Writer, opts 
 		if err != nil {
 			f.Closing()
 			err = decodeAwsErr(err)
-			logger.Debugf("[aws-s3] compress(%s.%s.*) failed. '%s'", bucket, key, err.Error())
+			logger.DebugfWithContext(lopts.Context, "[aws-s3] compress(%s.%s.*) failed. '%s'", bucket, key, err.Error())
 		}
 
 		f.Wait()
@@ -649,18 +651,8 @@ func (client *s3Client) ping() error {
 	ctx, _ := context.WithTimeout(context.Background(), client.options.Timeout)
 	if _, err := client.s3.ListBucketsWithContext(ctx, &s3.ListBucketsInput{}); err != nil {
 		err = decodeAwsErr(err)
-		logger.Errorf(`[aws-s3] dial "%s" failed. '%s'`, client.s3.Endpoint, err.Error())
+		logger.ErrorfWithContext(ctx, `[aws-s3] dial "%s" failed. '%s'`, client.s3.Endpoint, err.Error())
 		return err
 	}
 	return nil
-}
-
-// writeat .
-type writeat struct {
-	io.WriteCloser
-}
-
-// WriteAt 顺序写入
-func (w *writeat) WriteAt(p []byte, off int64) (int, error) {
-	return w.Write(p)
 }

@@ -181,7 +181,7 @@ func (r *rkv) Get(key string, opts ...func(o *GetOptions)) (Output, error) {
 func (r *rkv) Del(key string, opts ...func(o *DelOptions)) error {
 	var dopts = parsedeloptions(opts...)
 
-	newkey := fmt.Sprintf(`%s_delete_%d`, key, library.NowDuration())
+	newkey := fmt.Sprintf(`%s_delete_%d`, key, library.NowTimestamp())
 	// rename
 	if err := r.client.RenameNX(dopts.Context, key, newkey).Err(); err != nil {
 		logger.ErrorfWithContext(dopts.Context, `[redis](%s) del failed. %s`, key, err.Error())

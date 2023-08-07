@@ -48,7 +48,7 @@ func TestClient(t *testing.T) {
 	{
 		r.Set(&Input{
 			Key: key,
-			Val: library.NowFormat(),
+			Val: library.NowString(),
 		}, func(o *SetOptions) {
 			o.TTL = 3 * time.Second
 			o.Context = ctx

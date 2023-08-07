@@ -4,38 +4,42 @@ import "time"
 
 const RFC3339Z = "2006-01-02 15:04:05.000"
 
-type TimeFormat string
+type TimeString string
 
 // Time .
-func (tf TimeFormat) Time() time.Time {
-	t, _ := time.Parse(RFC3339Z, string(tf))
+func (ts TimeString) Time() time.Time {
+	t, _ := time.Parse(RFC3339Z, string(ts))
 	return t
 }
 
-// Covert .
-func (t TimeFormat) Covert() time.Duration {
-	return time.Duration(t.Time().UnixMilli())
+// Timestamp .
+func (ts TimeString) Timestamp() int64 {
+	return ts.Time().UnixMilli()
 }
 
-// TimeDuration 毫秒时间戳
-type TimeDuration time.Duration
+type TimeTimestamp int64
 
 // Time .
-func (td TimeDuration) Time() time.Time {
-	return time.UnixMilli(int64(td))
+func (tt TimeTimestamp) Time() time.Time {
+	return time.UnixMilli(int64(tt))
 }
 
-// Covert .
-func (td TimeDuration) Covert() TimeFormat {
-	return TimeFormat(td.Time().Format(RFC3339Z))
+// TimeString .
+func (tt TimeTimestamp) TimeString() string {
+	return tt.Time().Format(RFC3339Z)
 }
 
-// NowFormat .
-func NowFormat() TimeFormat {
-	return TimeFormat(time.Now().Format(RFC3339Z))
+// Now .
+func Now() time.Time {
+	return time.Now()
 }
 
-// NowDuration .
-func NowDuration() TimeDuration {
-	return TimeDuration(time.Now().UnixMilli())
+// NowString .
+func NowString() string {
+	return time.Now().Format(RFC3339Z)
+}
+
+// NowTimestamp .
+func NowTimestamp() int64 {
+	return time.Now().UnixMilli()
 }

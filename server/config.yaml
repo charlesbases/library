@@ -1,0 +1,51 @@
+name: 'app'
+port: ':8080'
+spec:
+  logging:
+    minlevel: 'debug'
+  metrics:
+    enabled: true
+  websocket:
+    enabled: false
+    enSubscription: true
+  jwt:
+    enabled: true
+    secret: 'app'
+    expire: 3600
+    intercept:
+      enabled: true
+      includes:
+      - '/metrics'
+      - '/swagger'
+      - '/prefix/*'
+      excludes:
+      - '/metrics'
+      - '/swagger'
+      - '/prefix/*'
+  plugins:
+    redis:
+      enabled: true
+      type: 'client'
+      address:
+      - '10.63.2.46:6379'
+      username: ''
+      password: 'admin123456..'
+      timeout: 3
+      maxRetries: 3
+    broker:
+      enabled: true
+      type: 'nats'
+      address: 'nats'
+    storage:
+      enabled: true
+      type: 's3'
+      address: '10.64.21.34:32607'
+      accessKey: 'AINhzLWnmdnD70Ve'
+      secretKey: 'zxcfd6I3UeoaXrMHigA48YEbHy39Hmji'
+      timeout: 3
+      useSSL: false
+    database:
+      enabled: true
+      type: 'mysql'
+      dsn: 'root:mxmysql@tcp(10.64.21.34:31562)/mysql?charset=utf8mb4&parseTime=True&loc=Asia%2FShanghai'
+data:

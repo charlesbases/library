@@ -6,8 +6,9 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/charlesbases/library/server/hfwctx"
 	"github.com/gin-gonic/gin"
+
+	"github.com/charlesbases/library/server/hfwctx"
 )
 
 var (
@@ -26,25 +27,52 @@ type entry struct {
 	Request   *http.Request
 }
 
-// Negroni .
-func Negroni() gin.HandlerFunc {
+var Negroni = &negroni{ignores: make(map[string]struct{}, 0)}
+
+// negroni .
+type negroni struct {
+	ignores map[string]struct{}
+
+	// lk sync.RWMutex
+}
+
+// allowed  是否显示请求的 info 日志
+func (n *negroni) allowed(uri string) bool {
+	if len(n.ignores) == 0 {
+		return true
+	}
+	_, found := n.ignores[uri]
+	return found
+}
+
+// Ignore .
+func (n *negroni) Ignore(uri string) {
+	n.ignores[uri] = struct{}{}
+}
+
+// HandlerFunc .
+func (n *negroni) HandlerFunc() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		start := time.Now()
+		if n.allowed(ctx.Request.URL.Path) {
+			start := time.Now()
 
-		c := hfwctx.Encode(ctx)
-		c.Next()
+			c := hfwctx.Encode(ctx)
+			c.Next()
 
-		buff := new(bytes.Buffer)
-		defaulttemplate.Execute(buff, &entry{
-			StartTime: start.Format(defaultDateFormat),
-			Status:    ctx.Writer.Status(),
-			Duration:  time.Since(start),
-			Hostname:  ctx.Request.Host,
-			Method:    ctx.Request.Method,
-			Path:      ctx.Request.URL.Path,
-			Request:   ctx.Request,
-		})
+			buff := new(bytes.Buffer)
+			defaulttemplate.Execute(buff, &entry{
+				StartTime: start.Format(defaultDateFormat),
+				Status:    ctx.Writer.Status(),
+				Duration:  time.Since(start),
+				Hostname:  ctx.Request.Host,
+				Method:    ctx.Request.Method,
+				Path:      ctx.Request.URL.Path,
+				Request:   ctx.Request,
+			})
 
-		c.Info(buff.String())
+			c.Info(buff.String())
+		} else {
+			ctx.Next()
+		}
 	}
 }

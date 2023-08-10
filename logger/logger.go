@@ -15,8 +15,8 @@ func Debug(v ...interface{}) {
 
 // DebugWithContext .
 func DebugWithContext(ctx context.Context, v ...interface{}) {
-	if id := library.ContextValueTraceID(ctx); id != 0 {
-		logger.Named(id.String(), func(o *logger.Options) { o.Skip = 1 }).Debug(v...)
+	if uuid := library.ContextValueTraceID(ctx); len(uuid) != 0 {
+		logger.Named(uuid, func(o *logger.Options) { o.Skip = 1 }).Debug(v...)
 	} else {
 		logger.CallerSkip(1).Debug(v...)
 	}
@@ -29,8 +29,8 @@ func Debugf(format string, params ...interface{}) {
 
 // DebugfWithContext .
 func DebugfWithContext(ctx context.Context, format string, params ...interface{}) {
-	if id := library.ContextValueTraceID(ctx); id != 0 {
-		logger.Named(id.String(), func(o *logger.Options) { o.Skip = 1 }).Debugf(format, params...)
+	if uuid := library.ContextValueTraceID(ctx); len(uuid) != 0 {
+		logger.Named(uuid, func(o *logger.Options) { o.Skip = 1 }).Debugf(format, params...)
 	} else {
 		logger.CallerSkip(1).Debugf(format, params...)
 	}
@@ -43,8 +43,8 @@ func Info(v ...interface{}) {
 
 // InfoWithContext .
 func InfoWithContext(ctx context.Context, v ...interface{}) {
-	if id := library.ContextValueTraceID(ctx); id != 0 {
-		logger.Named(id.String(), func(o *logger.Options) { o.Skip = 1 }).Info(v...)
+	if uuid := library.ContextValueTraceID(ctx); len(uuid) != 0 {
+		logger.Named(uuid, func(o *logger.Options) { o.Skip = 1 }).Info(v...)
 	} else {
 		logger.CallerSkip(1).Info(v...)
 	}
@@ -57,8 +57,8 @@ func Infof(format string, params ...interface{}) {
 
 // InfofWithContext .
 func InfofWithContext(ctx context.Context, format string, params ...interface{}) {
-	if id := library.ContextValueTraceID(ctx); id != 0 {
-		logger.Named(id.String(), func(o *logger.Options) { o.Skip = 1 }).Infof(format, params...)
+	if uuid := library.ContextValueTraceID(ctx); len(uuid) != 0 {
+		logger.Named(uuid, func(o *logger.Options) { o.Skip = 1 }).Infof(format, params...)
 	} else {
 		logger.CallerSkip(1).Infof(format, params...)
 	}
@@ -71,8 +71,8 @@ func Warn(v ...interface{}) {
 
 // WarnWithContext .
 func WarnWithContext(ctx context.Context, v ...interface{}) {
-	if id := library.ContextValueTraceID(ctx); id != 0 {
-		logger.Named(id.String(), func(o *logger.Options) { o.Skip = 1 }).Warn(v...)
+	if uuid := library.ContextValueTraceID(ctx); len(uuid) != 0 {
+		logger.Named(uuid, func(o *logger.Options) { o.Skip = 1 }).Warn(v...)
 	} else {
 		logger.CallerSkip(1).Warn(v...)
 	}
@@ -85,8 +85,8 @@ func Warnf(format string, params ...interface{}) {
 
 // WarnfWithContext .
 func WarnfWithContext(ctx context.Context, format string, params ...interface{}) {
-	if id := library.ContextValueTraceID(ctx); id != 0 {
-		logger.Named(id.String(), func(o *logger.Options) { o.Skip = 1 }).Warnf(format, params...)
+	if uuid := library.ContextValueTraceID(ctx); len(uuid) != 0 {
+		logger.Named(uuid, func(o *logger.Options) { o.Skip = 1 }).Warnf(format, params...)
 	} else {
 		logger.CallerSkip(1).Warnf(format, params...)
 	}
@@ -99,8 +99,8 @@ func Error(v ...interface{}) {
 
 // ErrorWithContext .
 func ErrorWithContext(ctx context.Context, v ...interface{}) {
-	if id := library.ContextValueTraceID(ctx); id != 0 {
-		logger.Named(id.String(), func(o *logger.Options) { o.Skip = 1 }).Error(v...)
+	if uuid := library.ContextValueTraceID(ctx); len(uuid) != 0 {
+		logger.Named(uuid, func(o *logger.Options) { o.Skip = 1 }).Error(v...)
 	} else {
 		logger.CallerSkip(1).Error(v...)
 	}
@@ -113,8 +113,8 @@ func Errorf(format string, params ...interface{}) {
 
 // ErrorfWithContext .
 func ErrorfWithContext(ctx context.Context, format string, params ...interface{}) {
-	if id := library.ContextValueTraceID(ctx); id != 0 {
-		logger.Named(id.String(), func(o *logger.Options) { o.Skip = 1 }).Errorf(format, params...)
+	if uuid := library.ContextValueTraceID(ctx); len(uuid) != 0 {
+		logger.Named(uuid, func(o *logger.Options) { o.Skip = 1 }).Errorf(format, params...)
 	} else {
 		logger.CallerSkip(1).Errorf(format, params...)
 	}
@@ -127,8 +127,8 @@ func Fatal(v ...interface{}) {
 
 // FatalWithContext .
 func FatalWithContext(ctx context.Context, v ...interface{}) {
-	if id := library.ContextValueTraceID(ctx); id != 0 {
-		logger.Named(id.String(), func(o *logger.Options) { o.Skip = 1 }).Fatal(v...)
+	if uuid := library.ContextValueTraceID(ctx); len(uuid) != 0 {
+		logger.Named(uuid, func(o *logger.Options) { o.Skip = 1 }).Fatal(v...)
 	} else {
 		logger.CallerSkip(1).Fatal(v...)
 	}
@@ -141,8 +141,8 @@ func Fatalf(format string, params ...interface{}) {
 
 // FatalfWithContext .
 func FatalfWithContext(ctx context.Context, format string, params ...interface{}) {
-	if id := library.ContextValueTraceID(ctx); id != 0 {
-		logger.Named(id.String(), func(o *logger.Options) { o.Skip = 1 }).Fatalf(format, params...)
+	if uuid := library.ContextValueTraceID(ctx); len(uuid) != 0 {
+		logger.Named(uuid, func(o *logger.Options) { o.Skip = 1 }).Fatalf(format, params...)
 	} else {
 		logger.CallerSkip(1).Fatalf(format, params...)
 	}

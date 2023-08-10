@@ -6,6 +6,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/charlesbases/library/codec"
+	"github.com/charlesbases/library/content"
 )
 
 // defaultConfigurationFilePath 默认配置文件路径
@@ -59,4 +60,8 @@ func (c *c) Marshal(v interface{}) ([]byte, error) {
 
 func (c *c) Unmarshal(data []byte, v interface{}) error {
 	return yaml.Unmarshal(data, v)
+}
+
+func (c *c) ContentType() content.Type {
+	return content.Yaml
 }

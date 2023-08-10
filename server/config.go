@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/charlesbases/logger"
@@ -12,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/charlesbases/library/broker"
 	"github.com/charlesbases/library/codec/yaml"
 	"github.com/charlesbases/library/database"
 	"github.com/charlesbases/library/database/orm"
@@ -77,7 +75,8 @@ type logging struct {
 // metrics .
 type metrics struct {
 	// Enabled enabled
-	Enabled bool `yaml:"enabled"`
+	Enabled bool   `yaml:"enabled"`
+	Path    string `yaml:"path"`
 }
 
 // ws .
@@ -113,7 +112,7 @@ type serverRedis struct {
 	// Password password
 	Password string `yaml:"password"`
 	// Timeout timeout
-	Timeout int `yaml:"timeout"`
+	Timeout int `yaml:"timeout" default:"3"`
 	// MaxRetries 命令执行失败时的最大重试次数
 	MaxRetries int `yaml:"maxRetries"`
 }
@@ -123,9 +122,11 @@ type serverBroker struct {
 	// Enabled enabled
 	Enabled bool `yaml:"enabled"`
 	// Type type of broker
-	Type broker.Type `yaml:"type"`
+	Type string `yaml:"type"`
 	// Address address
 	Address string `yaml:"address"`
+	// Timeout timeout
+	Timeout int `yaml:"timeout" default:"3"`
 }
 
 // serverStorage .
@@ -141,7 +142,7 @@ type serverStorage struct {
 	// SecretKey secretkey
 	SecretKey string `yaml:"secretKey"`
 	// Timeout timeout
-	Timeout int `yaml:"timeout"`
+	Timeout int `yaml:"timeout" default:"3"`
 	// UseSSL usessl
 	UseSSL bool `yaml:"useSsl"`
 }
@@ -172,10 +173,9 @@ func parseconf() *configuration {
 func (c *configuration) server() *Server {
 	srv := &Server{
 		name:      c.Name,
-		uuid:      uuid.New(),
 		ctx:       context.Background(),
 		lifecycle: new(lifecycle.Lifecycle)}
-	srv.id = strings.Join([]string{srv.name, srv.uuid.String()}, ".")
+	srv.id = srv.name + "." + uuid.NewString()
 
 	// gin.Engine
 	c.initEngine(srv)
@@ -201,8 +201,8 @@ func (c *configuration) initEngine(srv *Server) {
 
 	srv.engine = gin.New()
 	srv.engine.Use(middlewares.Cors())
-	srv.engine.Use(middlewares.Negroni())
 	srv.engine.Use(middlewares.Recovery())
+	srv.engine.Use(middlewares.Negroni.HandlerFunc())
 
 	// logging
 	logger.SetDefault(func(o *logger.Options) {
@@ -221,7 +221,8 @@ func (c *configuration) initEngine(srv *Server) {
 
 	// metrics
 	if c.Spec.Metrics.Enabled {
-		srv.engine.GET("/metrics", gin.WrapH(promhttp.Handler()))
+		srv.engine.GET(c.Spec.Metrics.Path, gin.WrapH(promhttp.Handler()))
+		middlewares.Negroni.Ignore(c.Spec.Metrics.Path)
 	}
 }
 
@@ -258,7 +259,7 @@ func (c *configuration) initBroker(srv *Server) {
 		// broker
 		srv.lifecycle.Append(
 			&lifecycle.Hook{
-				Name:    conf.Type.String(),
+				Name:    conf.Type,
 				OnStart: nil,
 				OnStop:  nil,
 			})

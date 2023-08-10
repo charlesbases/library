@@ -5,6 +5,7 @@ spec:
     minlevel: 'debug'
   metrics:
     enabled: true
+    path: '/metrics'
   websocket:
     enabled: false
     enSubscription: true

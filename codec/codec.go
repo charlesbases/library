@@ -1,6 +1,10 @@
 package codec
 
-import "io"
+import (
+	"io"
+
+	"github.com/charlesbases/library/content"
+)
 
 type Decoder interface {
 	Decode(v interface{}) error
@@ -9,6 +13,7 @@ type Decoder interface {
 type Marshaler interface {
 	Marshal(v interface{}) ([]byte, error)
 	Unmarshal(data []byte, v interface{}) error
+	ContentType() content.Type
 }
 
 // DecodeOptions 从文件或 io.Reader 中加载

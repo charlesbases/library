@@ -2,15 +2,13 @@ package webserver
 
 import (
 	"fmt"
-
-	"github.com/charlesbases/library/sonyflake"
 )
 
 // WebError .
 type WebError struct {
-	ID      sonyflake.ID `json:"id"`
-	Code    Code         `json:"code"`
-	Message string       `json:"message"`
+	ID      string `json:"id"`
+	Code    Code   `json:"code"`
+	Message string `json:"message"`
 }
 
 // Error .

@@ -6,14 +6,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/charlesbases/library/logger"
 
 	"github.com/charlesbases/library"
-	"github.com/charlesbases/library/sonyflake"
 )
 
 func TestClient(t *testing.T) {
-	ctx := context.WithValue(context.Background(), library.HeaderTraceID, sonyflake.NextID())
+	ctx := context.WithValue(context.Background(), library.HeaderTraceID, uuid.NewString())
 
 	r, _ := NewClient(func(o *Options) {
 		o.Addrs = []string{"10.63.2.46:6379"}

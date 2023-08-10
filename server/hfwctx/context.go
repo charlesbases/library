@@ -7,24 +7,23 @@ import (
 
 	"github.com/charlesbases/logger"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/charlesbases/library"
 	"github.com/charlesbases/library/content"
 	"github.com/charlesbases/library/server/webserver"
-	"github.com/charlesbases/library/sonyflake"
 )
 
 // Context .
 type Context struct {
 	*gin.Context
 
-	id sonyflake.ID
-
+	id  string
 	log *logger.Logger
 }
 
 // ID .
-func (c *Context) ID() sonyflake.ID {
+func (c *Context) ID() string {
 	return c.id
 }
 
@@ -88,17 +87,15 @@ func (c *Context) Decode() *gin.Context {
 
 // Encode .
 func Encode(ctx *gin.Context) *Context {
-	var id sonyflake.ID
 	// parse traceid in header
-	if v := ctx.GetHeader(library.HeaderTraceID); len(v) != 0 {
-		id = sonyflake.ParseString(v)
-	} else {
-		id = sonyflake.NextID()
+	var id = ctx.GetHeader(library.HeaderTraceID)
+	if len(id) == 0 {
+		id = uuid.NewString()
 		// set traceid in header
-		ctx.Header(library.HeaderTraceID, id.String())
+		ctx.Header(library.HeaderTraceID, id)
 	}
 
 	// set traceid in context
-	ctx.Set(library.HeaderTraceID, id.String())
-	return &Context{Context: ctx, id: id, log: logger.Named(id.String(), func(o *logger.Options) { o.Skip = 1 })}
+	ctx.Set(library.HeaderTraceID, id)
+	return &Context{Context: ctx, id: id, log: logger.Named(id, func(o *logger.Options) { o.Skip = 1 })}
 }

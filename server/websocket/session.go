@@ -8,12 +8,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 
 	"github.com/charlesbases/library"
 	"github.com/charlesbases/library/server/hfwctx"
 	"github.com/charlesbases/library/server/webserver"
-	"github.com/charlesbases/library/sonyflake"
 )
 
 // upgrader websocker upgrader
@@ -24,7 +24,7 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin:      func(r *http.Request) bool { return true },
 }
 
-type sessionID sonyflake.ID
+type sessionID string
 
 // Session .
 type Session struct {
@@ -355,7 +355,7 @@ func (pool *pool) verifySession(id sessionID) bool {
 
 // newSession .
 func (pool *pool) createSession() sessionID {
-	id := sessionID(sonyflake.NextID())
+	id := sessionID(uuid.NewString())
 
 	pool.lk.Lock()
 	pool.store[id] = struct{}{}

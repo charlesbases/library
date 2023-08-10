@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 
 	"github.com/charlesbases/library/codec"
+	"github.com/charlesbases/library/content"
 )
 
 // Marshaler default codec.Marshaler
-var Marshaler = NewMarshaler(func(o *codec.MarshalOptions) { o.Indent = true })
+var Marshaler = NewMarshaler()
 
 type c struct {
 	*codec.MarshalOptions
@@ -34,4 +35,8 @@ func (c *c) Marshal(v interface{}) ([]byte, error) {
 // Unmarshal .
 func (c *c) Unmarshal(d []byte, v interface{}) error {
 	return json.Unmarshal(d, v)
+}
+
+func (c *c) ContentType() content.Type {
+	return content.Json
 }

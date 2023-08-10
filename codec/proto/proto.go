@@ -6,6 +6,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/charlesbases/library/codec"
+	"github.com/charlesbases/library/content"
 )
 
 var ErrInvalidType = errors.New("proto: not implemented")
@@ -39,4 +40,8 @@ func (*c) Marshal(v interface{}) ([]byte, error) {
 // Unmarshal .
 func (*c) Unmarshal(data []byte, v interface{}) error {
 	return proto.Unmarshal(data, v.(proto.Message))
+}
+
+func (c *c) ContentType() content.Type {
+	return content.Proto
 }

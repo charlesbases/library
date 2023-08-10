@@ -3,12 +3,11 @@ package server
 import (
 	"context"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/charlesbases/logger"
 	"github.com/gin-gonic/gin"
 
+	"github.com/charlesbases/library"
 	"github.com/charlesbases/library/broker"
 	"github.com/charlesbases/library/codec/json"
 	"github.com/charlesbases/library/lifecycle"
@@ -44,8 +43,7 @@ func Run(fn func(srv *Server)) {
 
 	// on stop
 	go func() {
-		c := make(chan os.Signal)
-		signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
+		c := library.Shutdown()
 		select {
 		case <-c:
 			srv.lifecycle.Stop(srv.ctx)

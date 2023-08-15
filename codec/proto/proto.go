@@ -11,6 +11,8 @@ import (
 
 var ErrInvalidType = errors.New("proto: not implemented")
 
+const mess = "[ProtoMessage]"
+
 // Marshaler default codec.Marshaler
 var Marshaler = NewMarshaler()
 
@@ -28,7 +30,6 @@ func NewMarshaler(opts ...func(o *codec.MarshalOptions)) codec.Marshaler {
 	return &c{MarshalOptions: options}
 }
 
-// Marshal .
 func (*c) Marshal(v interface{}) ([]byte, error) {
 	if pv, ok := v.(proto.Message); ok {
 		return proto.Marshal(pv)
@@ -37,9 +38,12 @@ func (*c) Marshal(v interface{}) ([]byte, error) {
 	}
 }
 
-// Unmarshal .
 func (*c) Unmarshal(data []byte, v interface{}) error {
 	return proto.Unmarshal(data, v.(proto.Message))
+}
+
+func (c *c) ShowMessage(data []byte) string {
+	return mess
 }
 
 func (c *c) ContentType() content.Type {

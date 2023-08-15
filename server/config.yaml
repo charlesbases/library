@@ -37,6 +37,7 @@ spec:
       enabled: true
       type: 'nats'
       address: 'nats'
+      reconnectWait: 3
     storage:
       enabled: true
       type: 's3'

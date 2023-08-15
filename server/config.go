@@ -11,6 +11,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/charlesbases/library/broker"
+	"github.com/charlesbases/library/broker/kafka"
+	"github.com/charlesbases/library/broker/nats"
 	"github.com/charlesbases/library/codec/yaml"
 	"github.com/charlesbases/library/database"
 	"github.com/charlesbases/library/database/orm"
@@ -123,10 +126,12 @@ type serverBroker struct {
 	Enabled bool `yaml:"enabled"`
 	// Type type of broker
 	Type string `yaml:"type"`
+	// Version kafka version
+	Version string `yaml:"version"`
 	// Address address
 	Address string `yaml:"address"`
-	// Timeout timeout
-	Timeout int `yaml:"timeout" default:"3"`
+	// ReconnectWait default: 3s
+	ReconnectWait int `yaml:"reconnectWait" default:"3"`
 }
 
 // serverStorage .
@@ -251,7 +256,7 @@ func (c *configuration) initRedis(srv *Server) {
 	}
 }
 
-// initBroker TODO
+// initBroker .
 func (c *configuration) initBroker(srv *Server) {
 	if c.Spec.Plugins.Broker.Enabled {
 		conf := c.Spec.Plugins.Broker
@@ -259,9 +264,34 @@ func (c *configuration) initBroker(srv *Server) {
 		// broker
 		srv.lifecycle.Append(
 			&lifecycle.Hook{
-				Name:    conf.Type,
-				OnStart: nil,
-				OnStop:  nil,
+				Name: conf.Type,
+				OnStart: func(ctx context.Context) error {
+					switch conf.Type {
+					case "nats":
+						client, err := nats.NewClient(srv.id, func(o *broker.Options) {
+							o.Address = conf.Address
+							o.ReconnectWait = time.Duration(conf.ReconnectWait) * time.Second
+						})
+
+						srv.broker = client
+						return err
+					case "kafka":
+						client, err := kafka.NewClient(srv.id, func(o *broker.Options) {
+							o.Version = conf.Version
+							o.Address = conf.Address
+							o.ReconnectWait = time.Duration(conf.ReconnectWait) * time.Second
+						})
+
+						srv.broker = client
+						return err
+					default:
+						return fmt.Errorf(`load configuration failed: unsupported values of 'spec.plugins.broker.type: "%s"'`, conf.Type)
+					}
+				},
+				OnStop: func(ctx context.Context) error {
+					srv.broker.Close()
+					return nil
+				},
 			})
 
 		// websocket
@@ -291,11 +321,9 @@ func (c *configuration) initStorage(srv *Server) {
 							o.Timeout = time.Duration(conf.Timeout) * time.Second
 							o.UseSSL = conf.UseSSL
 						})
-						if err != nil {
-							return err
-						}
+
 						srv.storage = client
-						return nil
+						return err
 					default:
 						return fmt.Errorf(`load configuration failed: unsupported values of 'spec.plugins.storage.type: "%s"'`, conf.Type)
 					}
@@ -309,20 +337,20 @@ func (c *configuration) initDatabase(srv *Server) {
 	if c.Spec.Plugins.Database.Enabled {
 		conf := c.Spec.Plugins.Database
 
-		var dr driver.Driver
-		switch conf.Type {
-		case "mysql":
-			dr = new(driver.Mysql)
-		case "postgres":
-			dr = new(driver.Postgres)
-		default:
-			logger.Fatalf(`load configuration failed: unsupported values of 'spec.plugins.database.type: "%s"'`, conf.Type)
-		}
-
 		srv.lifecycle.Append(
 			&lifecycle.Hook{
-				Name: dr.Type(),
+				Name: conf.Type,
 				OnStart: func(ctx context.Context) error {
+					var dr driver.Driver
+					switch conf.Type {
+					case "mysql":
+						dr = new(driver.Mysql)
+					case "postgres":
+						dr = new(driver.Postgres)
+					default:
+						return fmt.Errorf(`load configuration failed: unsupported values of 'spec.plugins.database.type: "%s"'`, conf.Type)
+					}
+
 					return orm.Init(dr, func(o *database.Options) {
 						o.Address = conf.Dsn
 						o.MaxOpenConns = conf.MaxOpenConns

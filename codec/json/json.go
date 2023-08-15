@@ -24,7 +24,6 @@ func NewMarshaler(opts ...func(o *codec.MarshalOptions)) codec.Marshaler {
 	return &c{MarshalOptions: options}
 }
 
-// Marshal .
 func (c *c) Marshal(v interface{}) ([]byte, error) {
 	if c.Indent {
 		return json.MarshalIndent(v, "", "  ")
@@ -32,9 +31,12 @@ func (c *c) Marshal(v interface{}) ([]byte, error) {
 	return json.Marshal(v)
 }
 
-// Unmarshal .
 func (c *c) Unmarshal(d []byte, v interface{}) error {
 	return json.Unmarshal(d, v)
+}
+
+func (c *c) ShowMessage(data []byte) string {
+	return string(data)
 }
 
 func (c *c) ContentType() content.Type {

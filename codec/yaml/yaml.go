@@ -62,6 +62,10 @@ func (c *c) Unmarshal(data []byte, v interface{}) error {
 	return yaml.Unmarshal(data, v)
 }
 
+func (c *c) ShowMessage(data []byte) string {
+	return string(data)
+}
+
 func (c *c) ContentType() content.Type {
 	return content.Yaml
 }

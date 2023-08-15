@@ -27,13 +27,11 @@ type entry struct {
 	Request   *http.Request
 }
 
-var Negroni = &negroni{ignores: make(map[string]struct{}, 0)}
+var Negroni = &negroni{ignores: make([]string, 0)}
 
 // negroni .
 type negroni struct {
-	ignores map[string]struct{}
-
-	// lk sync.RWMutex
+	ignores []string
 }
 
 // allowed  是否显示请求的 info 日志
@@ -41,13 +39,21 @@ func (n *negroni) allowed(uri string) bool {
 	if len(n.ignores) == 0 {
 		return true
 	}
-	_, found := n.ignores[uri]
-	return found
+	for _, val := range n.ignores {
+		if uri == val {
+			return true
+		}
+	}
+	return false
 }
 
 // Ignore .
-func (n *negroni) Ignore(uri string) {
-	n.ignores[uri] = struct{}{}
+func (n *negroni) Ignore(uri ...string) {
+	if len(n.ignores) == 0 {
+		n.ignores = uri
+	} else {
+		n.ignores = append(n.ignores, uri...)
+	}
 }
 
 // HandlerFunc .

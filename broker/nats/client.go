@@ -19,8 +19,8 @@ type client struct {
 	id   string
 	opts *broker.Options
 
-	conn   *nats.Conn
-	stream nats.JetStreamContext
+	conn *nats.Conn
+	js   nats.JetStreamContext
 
 	actived bool
 }
@@ -37,21 +37,21 @@ func (c *client) connect() error {
 		return fmt.Errorf(`connect to "%s" failed. %v`, c.opts.Address, err)
 	}
 
-	stream, err := conn.JetStream()
+	js, err := conn.JetStream()
 	if err != nil {
 		return fmt.Errorf(`connect to "%s" failed. %v`, c.opts.Address, err)
 	}
 
 	c.conn = conn
-	c.stream = stream
+	c.js = js
 	return nil
 }
 
-// orCreateStream add stream if stream name not existed
+// orCreateStream add js if js name not existed
 func (c *client) orCreateStream(v string) error {
 	var err error
-	if _, err = c.stream.StreamInfo(v); err == nats.ErrStreamNotFound {
-		_, err = c.stream.AddStream(&nats.StreamConfig{
+	if _, err = c.js.StreamInfo(v); err == nats.ErrStreamNotFound {
+		_, err = c.js.AddStream(&nats.StreamConfig{
 			Name:      v,
 			Subjects:  []string{v},
 			MaxAge:    7 * 24 * time.Hour,
@@ -99,7 +99,7 @@ func (c *client) Publish(topic string, v interface{}, opts ...func(o *broker.Pub
 	}
 
 	// publish
-	if ack, err := c.stream.PublishMsgAsync(&nats.Msg{
+	if ack, err := c.js.PublishMsgAsync(&nats.Msg{
 		Subject: topic,
 		Reply:   "", // TODO
 		Data:    data,
@@ -133,7 +133,7 @@ func (c *client) Subscribe(topic string, handler broker.Handler, opts ...func(o 
 
 	var o = broker.ParseSubscribeOptions(opts...)
 
-	_, err := c.stream.QueueSubscribe(topic, o.ConsumerModel(c.id, topic),
+	_, err := c.js.QueueSubscribe(topic, o.ConsumerModel(c.id, topic),
 		func(msg *nats.Msg) {
 			msg.Ack()
 
@@ -148,6 +148,7 @@ func (c *client) Subscribe(topic string, handler broker.Handler, opts ...func(o 
 		logger.Error(`[nats] subscribe["%s"] failed. %s.`, topic, err.Error())
 		return
 	}
+
 }
 
 func (c *client) Close() {

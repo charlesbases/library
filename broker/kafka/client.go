@@ -75,13 +75,13 @@ func (c *client) connect() (err error) {
 	// client
 	c.client, err = sarama.NewClient([]string{c.opts.Address}, c.conf)
 	if err != nil {
-		return fmt.Errorf("connect failed. %v", err)
+		return fmt.Errorf(`connect to "%s" failed. %v`, c.opts.Address, err)
 	}
 
 	// producer
 	c.producer, err = sarama.NewAsyncProducerFromClient(c.client)
 	if err != nil {
-		return fmt.Errorf("connect failed. NewProducer error: %v", err)
+		return fmt.Errorf(`connect to "%s" failed. NewProducer error: %v`, c.opts.Address, err)
 	}
 
 	c.actived = true

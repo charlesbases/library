@@ -7,6 +7,7 @@ import (
 
 	"github.com/charlesbases/logger"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/charlesbases/library"
 	"github.com/charlesbases/library/broker"
@@ -14,6 +15,11 @@ import (
 	"github.com/charlesbases/library/lifecycle"
 	"github.com/charlesbases/library/storage"
 )
+
+// Random 随机的 Server.id
+var Random = func(name string) string {
+	return name + "." + uuid.NewString()
+}
 
 // Server .
 type Server struct {

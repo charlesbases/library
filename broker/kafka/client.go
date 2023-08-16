@@ -110,7 +110,7 @@ func (c *client) Publish(topic string, v interface{}, opts ...func(o *broker.Pub
 		return fmt.Errorf(`[kafka] publish["%s"] failed. connection not ready.`, topic)
 	}
 
-	if err := broker.CheckTopic(topic); err != nil {
+	if err := broker.CheckSubject(topic); err != nil {
 		return err
 	}
 
@@ -152,10 +152,12 @@ func (c *client) Subscribe(topic string, handler broker.Handler, opts ...func(o 
 		return
 	}
 
-	if err := broker.CheckTopic(topic); err != nil {
+	if err := broker.CheckSubject(topic); err != nil {
 		logger.Errorf(`[kafka] subscribe["%s"] failed. %s`, err.Error())
 		return
 	}
+
+	logger.Debugf(`[kafka] subscribe["%s"]`, topic)
 
 	var o = broker.ParseSubscribeOptions(opts...)
 
@@ -189,6 +191,7 @@ func (c *client) Subscribe(topic string, handler broker.Handler, opts ...func(o 
 func (c *client) Close() {
 	if c.actived {
 		c.actived = false
+
 		close(c.closing)
 		c.client.Close()
 	}

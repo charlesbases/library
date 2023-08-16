@@ -8,7 +8,6 @@ import (
 	"github.com/charlesbases/logger"
 	"github.com/charlesbases/logger/filewriter"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/charlesbases/library/broker"
@@ -177,10 +176,11 @@ func parseconf() *configuration {
 // server .
 func (c *configuration) server() *Server {
 	srv := &Server{
+		id:        Random(c.Name),
 		name:      c.Name,
 		ctx:       context.Background(),
-		lifecycle: new(lifecycle.Lifecycle)}
-	srv.id = srv.name + "." + uuid.NewString()
+		lifecycle: new(lifecycle.Lifecycle),
+	}
 
 	// gin.Engine
 	c.initEngine(srv)

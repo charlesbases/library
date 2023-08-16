@@ -57,14 +57,14 @@ type ConsumerModel func(clientid string, topic string) string
 // RandomConsumption 随机消费。只有一个服务会消费
 var RandomConsumption = func(clientid string, topic string) string {
 	if args := strings.Split(clientid, "."); len(args) != 0 {
-		return args[0] + "." + topic
+		return strings.Join([]string{topic, args[0]}, ".")
 	}
 	return topic
 }
 
 // SharedConsumption 共享消费。多服务共同消费
 var SharedConsumption = func(clientid string, topic string) string {
-	return clientid + "." + topic
+	return strings.Join([]string{topic, clientid}, ".")
 }
 
 // SubscribeOptions .

@@ -44,8 +44,8 @@ type JsonMessage struct {
 	Data interface{} `json:"data"`
 }
 
-// CheckTopic .
-func CheckTopic(t string) error {
+// CheckSubject .
+func CheckSubject(t string) error {
 	if len(strings.TrimSpace(t)) == 0 {
 		return errors.New("topic cannot be empty")
 	}

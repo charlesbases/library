@@ -27,10 +27,10 @@ import (
 	"github.com/charlesbases/library/storage/s3"
 )
 
-var conf = new(configuration)
-
 // configuration .
 type configuration struct {
+	opts *options
+
 	// Name server name
 	Name string `yaml:"name"`
 	// Port http port
@@ -165,19 +165,44 @@ type serverDatabase struct {
 	MaxIdleConns int `yaml:"maxIdleConns" default:"4"`
 }
 
-// parseconf use default config file of './config.yaml'
-func parseconf() *configuration {
+// options .
+type options struct {
+	model int8
+}
+
+type Option func(o *options)
+
+// SetModel
+// NormalModel | RandomModel | HostnameModel | DistributionModel
+func SetModel(m int8) Option {
+	return func(o *options) {
+		o.model = m
+	}
+}
+
+// decode parse conf with Options.ConfPath
+func decode(opts ...Option) *configuration {
+	var options = new(options)
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	var conf = new(configuration)
 	if err := yaml.NewDecoder().Decode(conf); err != nil {
 		logger.Fatal(err)
 	}
+
+	conf.opts = options
 	return conf
 }
 
 // server .
 func (c *configuration) server() *Server {
 	srv := &Server{
-		id:        Random(c.Name),
-		name:      c.Name,
+		name: c.Name,
+		port: c.Port,
+		data: c.Data,
+
 		ctx:       context.Background(),
 		lifecycle: new(lifecycle.Lifecycle),
 	}

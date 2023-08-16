@@ -43,7 +43,7 @@ func TestRun(t *testing.T) {
 		// 	return string(data)
 		// }())
 
-	})
+	}, SetModel(NormalModel))
 }
 
 // websockerAction .

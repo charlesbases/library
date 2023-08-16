@@ -7,7 +7,6 @@ import (
 
 	"github.com/charlesbases/logger"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 
 	"github.com/charlesbases/library"
 	"github.com/charlesbases/library/broker"
@@ -16,15 +15,28 @@ import (
 	"github.com/charlesbases/library/storage"
 )
 
-// Random 随机的 Server.id
-var Random = func(name string) string {
-	return name + "." + uuid.NewString()
-}
+var model = NormalModel
+
+const (
+	// NormalModel 单副本时将 name 作为服务唯一 id
+	NormalModel int8 = iota
+	// RandomModel 多副本但不需要连接 nats、kafka 等有状态应用时，可使用 "name.uuid" 作为服务随机唯一 id。
+	// 以 nats 为例，消息订阅时的 queueName(id.subject) 和 consumerName(subject.id) 需确保唯一且不变，
+	// 否则 nats 不会推送服务上次离线期间的消息。会造成消息丢失现象。
+	RandomModel
+	// HostnameModel 在副本 hostname 确定或规范时(StatefulSet)，"name.hostname" 可作为单副本或多副本有状态下的服务唯一 id，
+	// 在 hostname 随机时(Deployment)，不可作为单副本或多副本模式下的服务唯一 id。
+	HostnameModel
+	// DistributionModel 使用第三方 redis 分发多副本的服务唯一 id
+	DistributionModel
+)
 
 // Server .
 type Server struct {
 	id   string
 	name string
+	port string
+	data interface{}
 
 	ctx       context.Context
 	lifecycle *lifecycle.Lifecycle
@@ -33,39 +45,6 @@ type Server struct {
 
 	broker  broker.Client
 	storage storage.Client
-}
-
-// Run .
-func Run(fn func(srv *Server)) {
-	// new server
-	srv := parseconf().server()
-
-	// do something
-	fn(srv)
-
-	// on start
-	if err := srv.lifecycle.Start(srv.ctx); err != nil {
-		os.Exit(1)
-	}
-
-	// on stop
-	go func() {
-		c := library.Shutdown()
-		select {
-		case <-c:
-			srv.lifecycle.Stop(srv.ctx)
-			logger.Flush()
-			close(c)
-		}
-		os.Exit(1)
-	}()
-
-	// run
-	logger.Infof("[%s] listening and serving HTTP on %s", srv.id, conf.Port)
-
-	if err := srv.engine.Run(conf.Port); err != nil {
-		logger.Fatal(err)
-	}
 }
 
 // Use .
@@ -108,10 +87,43 @@ func (srv *Server) Subscribe(topic string, handler broker.Handler, opts ...func(
 
 // Unmarshal 序列化 configuration 中的自定义配置项
 func (srv *Server) Unmarshal(v interface{}) error {
-	data, err := json.Marshaler.Marshal(&conf.Data)
+	data, err := json.Marshaler.Marshal(&srv.data)
 	if err != nil {
 		return err
 	}
 
 	return json.Marshaler.Unmarshal(data, v)
+}
+
+// Run .
+func Run(fn func(srv *Server), opts ...Option) {
+	// new server
+	srv := decode(opts...).server()
+
+	// do something
+	fn(srv)
+
+	// on start
+	if err := srv.lifecycle.Start(srv.ctx); err != nil {
+		os.Exit(1)
+	}
+
+	// on stop
+	go func() {
+		c := library.Shutdown()
+		select {
+		case <-c:
+			srv.lifecycle.Stop(srv.ctx)
+			logger.Flush()
+			close(c)
+		}
+		os.Exit(1)
+	}()
+
+	// run
+	logger.Infof("[%s] listening and serving HTTP on %s", srv.id, srv.port)
+
+	if err := srv.engine.Run(srv.port); err != nil {
+		logger.Fatal(err)
+	}
 }

@@ -242,7 +242,7 @@ func (c *configuration) broker(id string) *lifecycle.Hook {
 					o.ReconnectWait = time.Duration(c.Spec.Plugins.Broker.ReconnectWait) * time.Second
 				})
 
-				broker.BaseClient = client
+				broker.SetClient(client)
 				return err
 			case "kafka":
 				client, err := kafka.NewClient(id, func(o *broker.Options) {
@@ -251,14 +251,18 @@ func (c *configuration) broker(id string) *lifecycle.Hook {
 					o.ReconnectWait = time.Duration(c.Spec.Plugins.Broker.ReconnectWait) * time.Second
 				})
 
-				broker.BaseClient = client
+				broker.SetClient(client)
 				return err
 			default:
 				return fmt.Errorf(`load configuration failed: unsupported values of 'spec.plugins.broker.type: "%s"'`, c.Spec.Plugins.Broker.Type)
 			}
 		},
 		OnStop: func(ctx context.Context) error {
-			broker.BaseClient.Close()
+			if client, err := broker.GetClient(); err != nil {
+				return err
+			} else {
+				client.Close()
+			}
 			return nil
 		},
 	}
@@ -283,7 +287,7 @@ func (c *configuration) storage() *lifecycle.Hook {
 						o.UseSSL = c.Spec.Plugins.Storage.UseSSL
 					})
 
-				storage.BaseClient = client
+				storage.SetClient(client)
 				return err
 			default:
 				return fmt.Errorf(`load configuration failed: unsupported values of 'spec.plugins.storage.type: "%s"'`, c.Spec.Plugins.Storage.Type)

@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"errors"
 	"os"
 
 	"github.com/charlesbases/logger"
@@ -65,21 +64,26 @@ func (srv *Server) RegisterRouterGroup(uri string, fn func(r *Router), handlers 
 	fn(&Router{srv.engine.Group(uri, handlers...)})
 }
 
+// Storage .
+func (srv *Server) Storage() (storage.Client, error) {
+	return storage.GetClient()
+}
+
 // Publish 消息异步发布
 func (srv *Server) Publish(topic string, v interface{}, opts ...func(o *broker.PublishOptions)) error {
-	if broker.BaseClient != nil {
-		return broker.BaseClient.Publish(topic, v, opts...)
+	if client, err := broker.GetClient(); err != nil {
+		return err
 	} else {
-		return errors.New("publish failed. no broker!")
+		return client.Publish(topic, v, opts...)
 	}
 }
 
 // Subscribe 消息异步订阅
-func (srv *Server) Subscribe(topic string, handler broker.Handler, opts ...func(o *broker.SubscribeOptions)) {
-	if broker.BaseClient != nil {
-		broker.BaseClient.Subscribe(topic, handler, opts...)
+func (srv *Server) Subscribe(topic string, handler broker.Handler, opts ...func(o *broker.SubscribeOptions)) error {
+	if client, err := broker.GetClient(); err != nil {
+		return err
 	} else {
-		logger.Error("subscribe failed. no broker!")
+		return client.Subscribe(topic, handler, opts...)
 	}
 }
 

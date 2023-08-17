@@ -18,7 +18,7 @@ var (
 	ErrInvalidAddrs = errors.New("broker: invalid addrs")
 )
 
-var BaseClient Client
+var client Client
 
 // Client .
 type Client interface {
@@ -27,7 +27,7 @@ type Client interface {
 	// 若发布消息格式为 proto, 则参数 'v' 为发布的完整消息体, 方法内不做额外的封装
 	Publish(topic string, v interface{}, opts ...func(o *PublishOptions)) error
 	// Subscribe 消息订阅
-	Subscribe(topic string, handler Handler, opts ...func(o *SubscribeOptions))
+	Subscribe(topic string, handler Handler, opts ...func(o *SubscribeOptions)) error
 	// Close .
 	Close()
 }
@@ -44,6 +44,19 @@ type JsonMessage struct {
 	CreatedAt string `json:"created_at"`
 	// Data .
 	Data interface{} `json:"data"`
+}
+
+// SetClient .
+func SetClient(c Client) {
+	client = c
+}
+
+// GetClient .
+func GetClient() (Client, error) {
+	if client != nil {
+		return client, nil
+	}
+	return nil, errors.New("client is not initialized.")
 }
 
 // CheckSubject .

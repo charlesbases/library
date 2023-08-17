@@ -1,6 +1,7 @@
 package kafka
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -146,15 +147,16 @@ func (c *client) Publish(topic string, v interface{}, opts ...func(o *broker.Pub
 	return nil
 }
 
-func (c *client) Subscribe(topic string, handler broker.Handler, opts ...func(o *broker.SubscribeOptions)) {
+func (c *client) Subscribe(topic string, handler broker.Handler, opts ...func(o *broker.SubscribeOptions)) error {
 	if !c.actived {
-		logger.Errorf(`[kafka] subscribe["%s"] failed. connection not ready.`, topic)
-		return
+		err := errors.New("connection not ready.")
+		logger.Errorf(`[kafka] subscribe["%s"] failed. %s`, topic, err.Error())
+		return err
 	}
 
 	if err := broker.CheckSubject(topic); err != nil {
 		logger.Errorf(`[kafka] subscribe["%s"] failed. %s`, err.Error())
-		return
+		return err
 	}
 
 	logger.Debugf(`[kafka] subscribe["%s"]`, topic)
@@ -186,6 +188,8 @@ func (c *client) Subscribe(topic string, handler broker.Handler, opts ...func(o 
 			}
 		}
 	}()
+
+	return nil
 }
 
 func (c *client) Close() {

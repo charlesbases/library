@@ -19,7 +19,7 @@ import (
 
 var ErrNoSuchKey = errors.New("NoSuchKey: The specified key does not exist.")
 
-var BaseClient Client
+var client Client
 
 type Client interface {
 	// PutObject put object to storage
@@ -51,6 +51,19 @@ type Client interface {
 	// Compress compress object into '*.tar.gz'
 	// If compressing multiple objects, the key needs to end with '/'
 	Compress(bucket string, key string, dst io.Writer, opts ...func(o *ListOptions)) error
+}
+
+// SetClient .
+func SetClient(c Client) {
+	client = c
+}
+
+// GetClient .
+func GetClient() (Client, error) {
+	if client != nil {
+		return client, nil
+	}
+	return nil, errors.New("client is not initialized.")
 }
 
 type ObjectInput interface {

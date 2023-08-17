@@ -2,6 +2,7 @@ package nats
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -121,15 +122,16 @@ func (c *client) Publish(subject string, v interface{}, opts ...func(o *broker.P
 	return nil
 }
 
-func (c *client) Subscribe(subject string, handler broker.Handler, opts ...func(o *broker.SubscribeOptions)) {
+func (c *client) Subscribe(subject string, handler broker.Handler, opts ...func(o *broker.SubscribeOptions)) error {
 	if !c.actived {
-		logger.Errorf(`[nats] subscribe["%s"] failed. connection not ready.`, subject)
-		return
+		err := errors.New("connection not ready.")
+		logger.Errorf(`[nats] subscribe["%s"] failed. %s`, subject, err.Error())
+		return err
 	}
 
 	if err := broker.CheckSubject(subject); err != nil {
-		logger.Errorf(`[nats] subscribe["%s"] failed. %s.`, subject, err.Error())
-		return
+		logger.Errorf(`[nats] subscribe["%s"] failed. %s`, err.Error())
+		return err
 	}
 
 	logger.Debugf(`[nats] subscribe["%s"]`, subject)
@@ -147,8 +149,9 @@ func (c *client) Subscribe(subject string, handler broker.Handler, opts ...func(
 	_, err := c.js.QueueSubscribe(subject, o.ConsumerModel(c.id, subject), cb, nats.Durable(strings.Join([]string{c.id, subject}, ".")))
 	if err != nil {
 		logger.Error(`[nats] subscribe["%s"] failed. %s.`, subject, err.Error())
-		return
+		return err
 	}
+	return nil
 }
 
 func (c *client) Close() {

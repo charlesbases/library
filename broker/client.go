@@ -18,8 +18,6 @@ var (
 	ErrInvalidAddrs = errors.New("broker: invalid addrs")
 )
 
-var client Client
-
 // Client .
 type Client interface {
 	// Publish 消息发布
@@ -46,6 +44,8 @@ type JsonMessage struct {
 	Data interface{} `json:"data"`
 }
 
+var client Client
+
 // SetClient .
 func SetClient(c Client) {
 	client = c
@@ -56,7 +56,7 @@ func GetClient() (Client, error) {
 	if client != nil {
 		return client, nil
 	}
-	return nil, errors.New("client is not initialized.")
+	return nil, errors.New("broker client is not initialized.")
 }
 
 // CheckSubject .

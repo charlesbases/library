@@ -10,7 +10,7 @@ import (
 )
 
 func TestRun(t *testing.T) {
-	SetModel(NormalModel)
+	SetModel(RandomModel)
 
 	Run(func(srv *Server) {
 		srv.RegisterRouter(func(r *Router) {

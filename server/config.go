@@ -3,11 +3,14 @@ package server
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/charlesbases/logger"
 	"github.com/charlesbases/logger/filewriter"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/charlesbases/library/broker"
@@ -20,6 +23,7 @@ import (
 	"github.com/charlesbases/library/jwtauth"
 	"github.com/charlesbases/library/lifecycle"
 	"github.com/charlesbases/library/redis"
+	"github.com/charlesbases/library/regexp"
 	"github.com/charlesbases/library/server/middlewares"
 	"github.com/charlesbases/library/server/middlewares/jwt"
 	"github.com/charlesbases/library/storage"
@@ -55,13 +59,13 @@ type spec struct {
 // plugins .
 type plugins struct {
 	// Redis redis
-	Redis serverRedis `yaml:"redis"`
+	Redis pluginRedis `yaml:"redis"`
 	// Broker broker
-	Broker serverBroker `yaml:"broker"`
+	Broker pluginBroker `yaml:"broker"`
 	// Storage storage
-	Storage serverStorage `yaml:"storage"`
+	Storage pluginStorage `yaml:"storage"`
 	// Database database
-	Database serverDatabase `yaml:"database"`
+	Database pluginDatabase `yaml:"database"`
 }
 
 // logging .
@@ -98,8 +102,11 @@ type specJwtAuth struct {
 	Interceptor *jwt.Interceptor `yaml:"intercept"`
 }
 
-// serverRedis .
-type serverRedis struct {
+// pluginRedis .
+type pluginRedis struct {
+	// inited 是否已经初始化过
+	inited bool `yaml:"-"`
+
 	// Enabled enabled
 	Enabled bool `yaml:"enabled"`
 	// Type client or cluster
@@ -116,8 +123,11 @@ type serverRedis struct {
 	MaxRetries int `yaml:"maxRetries"`
 }
 
-// serverBroker .
-type serverBroker struct {
+// pluginBroker .
+type pluginBroker struct {
+	// inited 是否已经初始化过
+	inited bool `yaml:"-"`
+
 	// Enabled enabled
 	Enabled bool `yaml:"enabled"`
 	// Type type of broker
@@ -130,8 +140,11 @@ type serverBroker struct {
 	ReconnectWait int `yaml:"reconnectWait" default:"3"`
 }
 
-// serverStorage .
-type serverStorage struct {
+// pluginStorage .
+type pluginStorage struct {
+	// inited 是否已经初始化过
+	inited bool `yaml:"-"`
+
 	// Enabled enabled
 	Enabled bool `yaml:"enabled"`
 	// Type storage.Type
@@ -148,8 +161,11 @@ type serverStorage struct {
 	UseSSL bool `yaml:"useSsl"`
 }
 
-// serverDatabase .
-type serverDatabase struct {
+// pluginDatabase .
+type pluginDatabase struct {
+	// inited 是否已经初始化过
+	inited bool `yaml:"-"`
+
 	// Enabled enabled
 	Enabled bool `yaml:"enabled"`
 	// Type database.Driver
@@ -160,15 +176,6 @@ type serverDatabase struct {
 	MaxOpenConns int `yaml:"maxOpenConns" default:"0"`
 	// MaxIdleConns 连接池中最大空闲数
 	MaxIdleConns int `yaml:"maxIdleConns" default:"4"`
-}
-
-// decode parse conf with Options.ConfPath
-func decode() *configuration {
-	var conf = new(configuration)
-	if err := yaml.NewDecoder().Decode(conf); err != nil {
-		logger.Fatal(err)
-	}
-	return conf
 }
 
 // engine .
@@ -206,9 +213,11 @@ func (c *configuration) engine() *gin.Engine {
 
 // redis .
 func (c *configuration) redis() *lifecycle.Hook {
-	if !c.Spec.Plugins.Redis.Enabled {
+	if !c.Spec.Plugins.Redis.Enabled || c.Spec.Plugins.Redis.inited {
 		return nil
 	}
+	c.Spec.Plugins.Redis.inited = true
+
 	return &lifecycle.Hook{
 		Name: "redis",
 		OnStart: func(ctx context.Context) error {
@@ -229,9 +238,12 @@ func (c *configuration) redis() *lifecycle.Hook {
 
 // broker .
 func (c *configuration) broker(id string) *lifecycle.Hook {
-	if !c.Spec.Plugins.Broker.Enabled {
+	if !c.Spec.Plugins.Broker.Enabled || c.Spec.Plugins.Broker.inited {
 		return nil
 	}
+
+	c.Spec.Plugins.Broker.inited = true
+
 	return &lifecycle.Hook{
 		Name: c.Spec.Plugins.Broker.Type,
 		OnStart: func(ctx context.Context) error {
@@ -270,9 +282,12 @@ func (c *configuration) broker(id string) *lifecycle.Hook {
 
 // storage .
 func (c *configuration) storage() *lifecycle.Hook {
-	if !c.Spec.Plugins.Storage.Enabled {
+	if !c.Spec.Plugins.Storage.Enabled || c.Spec.Plugins.Storage.inited {
 		return nil
 	}
+
+	c.Spec.Plugins.Storage.inited = true
+
 	return &lifecycle.Hook{
 		Name: c.Spec.Plugins.Storage.Type,
 		OnStart: func(ctx context.Context) error {
@@ -298,9 +313,12 @@ func (c *configuration) storage() *lifecycle.Hook {
 
 // database .
 func (c *configuration) database() *lifecycle.Hook {
-	if !c.Spec.Plugins.Database.Enabled {
+	if !c.Spec.Plugins.Database.Enabled || c.Spec.Plugins.Database.inited {
 		return nil
 	}
+
+	c.Spec.Plugins.Database.inited = true
+
 	return &lifecycle.Hook{
 		Name: c.Spec.Plugins.Database.Type,
 		OnStart: func(ctx context.Context) error {
@@ -323,15 +341,48 @@ func (c *configuration) database() *lifecycle.Hook {
 	}
 }
 
+// serverid .
+func (c *configuration) serverid() string {
+	switch model {
+	case NormalModel:
+		return c.Name
+	case RandomModel:
+		return strings.Join([]string{c.Name, uuid.NewString()}, ".")
+	case HostnameModel:
+		hosname, err := os.Hostname()
+		if err != nil {
+			logger.Fatal(err)
+		}
+		return strings.Join([]string{c.Name, hosname}, ".")
+	case DistributionModel:
+		if hook := c.redis(); hook != nil {
+			// TODO
+			logger.Fatal("")
+		} else {
+			logger.Fatal("invalid redis configuration.")
+		}
+	default:
+		logger.Fatal("unsupported model of: ", model)
+	}
+
+	return c.Name
+}
+
 // server .
 func (c *configuration) server() *Server {
-	srv := &Server{
-		name: c.Name,
-		port: c.Port,
-		data: c.Data,
+	ctx := context.Background()
 
-		ctx:       context.Background(),
+	srv := &Server{
+		id:        c.serverid(),
+		ctx:       ctx,
+		name:      c.Name,
+		port:      c.Port,
+		data:      c.Data,
 		lifecycle: new(lifecycle.Lifecycle),
+	}
+
+	if !regexp.ServerName.MatchString(srv.name) {
+		logger.Fatalf("the server name of '%s' is not allowed, must match regular of `%s`.", srv.name, regexp.ServerName.String())
 	}
 
 	// gin.Engine
@@ -358,4 +409,13 @@ func (c *configuration) server() *Server {
 	}
 
 	return srv
+}
+
+// decode parse conf with Options.ConfPath
+func decode() *configuration {
+	var conf = new(configuration)
+	if err := yaml.NewDecoder().Decode(conf); err != nil {
+		logger.Fatal(err)
+	}
+	return conf
 }

@@ -19,8 +19,6 @@ import (
 
 var ErrNoSuchKey = errors.New("NoSuchKey: The specified key does not exist.")
 
-var client Client
-
 type Client interface {
 	// PutObject put object to storage
 	PutObject(input ObjectInput, opts ...func(o *PutOptions)) error
@@ -53,6 +51,8 @@ type Client interface {
 	Compress(bucket string, key string, dst io.Writer, opts ...func(o *ListOptions)) error
 }
 
+var client Client
+
 // SetClient .
 func SetClient(c Client) {
 	client = c
@@ -63,7 +63,7 @@ func GetClient() (Client, error) {
 	if client != nil {
 		return client, nil
 	}
-	return nil, errors.New("client is not initialized.")
+	return nil, errors.New("storage client is not initialized.")
 }
 
 type ObjectInput interface {

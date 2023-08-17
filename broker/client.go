@@ -18,6 +18,8 @@ var (
 	ErrInvalidAddrs = errors.New("broker: invalid addrs")
 )
 
+var BaseClient Client
+
 // Client .
 type Client interface {
 	// Publish 消息发布

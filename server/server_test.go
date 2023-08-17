@@ -10,6 +10,8 @@ import (
 )
 
 func TestRun(t *testing.T) {
+	SetModel(NormalModel)
+
 	Run(func(srv *Server) {
 		srv.RegisterRouter(func(r *Router) {
 			r.GET("/", func(ctx *hfwctx.Context) {
@@ -43,7 +45,7 @@ func TestRun(t *testing.T) {
 		// 	return string(data)
 		// }())
 
-	}, SetModel(NormalModel))
+	})
 }
 
 // websockerAction .

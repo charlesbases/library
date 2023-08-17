@@ -19,6 +19,8 @@ import (
 
 var ErrNoSuchKey = errors.New("NoSuchKey: The specified key does not exist.")
 
+var BaseClient Client
+
 type Client interface {
 	// PutObject put object to storage
 	PutObject(input ObjectInput, opts ...func(o *PutOptions)) error

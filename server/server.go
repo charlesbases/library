@@ -41,9 +41,7 @@ type Server struct {
 	ctx       context.Context
 	lifecycle *lifecycle.Lifecycle
 
-	engine *gin.Engine
-
-	broker  broker.Client
+	engine  *gin.Engine
 	storage storage.Client
 }
 
@@ -69,8 +67,8 @@ func (srv *Server) RegisterRouterGroup(uri string, fn func(r *Router), handlers 
 
 // Publish 消息异步发布
 func (srv *Server) Publish(topic string, v interface{}, opts ...func(o *broker.PublishOptions)) error {
-	if srv.broker != nil {
-		return srv.broker.Publish(topic, v, opts...)
+	if broker.BaseClient != nil {
+		return broker.BaseClient.Publish(topic, v, opts...)
 	} else {
 		return errors.New("publish failed. no broker!")
 	}
@@ -78,8 +76,8 @@ func (srv *Server) Publish(topic string, v interface{}, opts ...func(o *broker.P
 
 // Subscribe 消息异步订阅
 func (srv *Server) Subscribe(topic string, handler broker.Handler, opts ...func(o *broker.SubscribeOptions)) {
-	if srv.broker != nil {
-		srv.broker.Subscribe(topic, handler, opts...)
+	if broker.BaseClient != nil {
+		broker.BaseClient.Subscribe(topic, handler, opts...)
 	} else {
 		logger.Error("subscribe failed. no broker!")
 	}
@@ -95,10 +93,16 @@ func (srv *Server) Unmarshal(v interface{}) error {
 	return json.Marshaler.Unmarshal(data, v)
 }
 
+// SetModel .
+// NormalModel | RandomModel | HostnameModel | DistributionModel
+func SetModel(m int8) {
+	model = m
+}
+
 // Run .
-func Run(fn func(srv *Server), opts ...Option) {
+func Run(fn func(srv *Server)) {
 	// new server
-	srv := decode(opts...).server()
+	srv := decode().server()
 
 	// do something
 	fn(srv)

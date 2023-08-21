@@ -72,5 +72,5 @@ func Memory() (onstop func()) {
 		log.Warnf("system running without a memory watchdog.")
 	}
 
-	return func() {}
+	return nil
 }

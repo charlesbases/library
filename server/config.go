@@ -29,6 +29,7 @@ import (
 	"github.com/charlesbases/library/server/websocket"
 	"github.com/charlesbases/library/storage"
 	"github.com/charlesbases/library/storage/s3"
+	"github.com/charlesbases/library/watchdog"
 )
 
 // configuration .
@@ -45,6 +46,8 @@ type configuration struct {
 
 // spec .
 type spec struct {
+	// Watchdog watchdog
+	Watchdog autogc `yaml:"watchdog"`
 	// JWT jwt
 	JWT webtoken `yaml:"jwt"`
 	// Env env for server
@@ -57,6 +60,12 @@ type spec struct {
 	WebSocket ws `yaml:"websocket"`
 	// Plugins plugins
 	Plugins plugins `yaml:"plugins"`
+}
+
+// autogc .
+type autogc struct {
+	// Enable watchdog
+	Enable bool `yaml:"enable"`
 }
 
 // logging .
@@ -369,6 +378,23 @@ func (c *configuration) websocket() *lifecycle.Hook {
 	}
 }
 
+// watchdog .
+func (c *configuration) watchdog() *lifecycle.Hook {
+	if c.Spec.Watchdog.Enable {
+		if onstop := watchdog.Memory(); onstop != nil {
+			return &lifecycle.Hook{
+				Name: "watchdog",
+				OnStop: func(ctx context.Context) error {
+					onstop()
+					return nil
+				},
+			}
+		}
+	}
+
+	return nil
+}
+
 // envar .
 func (c *configuration) envar() error {
 	for _, env := range c.Spec.Env {
@@ -458,6 +484,11 @@ func (c *configuration) server() *Server {
 	// websocket
 	// 若启用 websocket 的 subscribe 功能，websocket.InitStation() 需要在 broker 初始化之后调用
 	if hook := c.websocket(); hook != nil {
+		srv.lifecycle.Append(hook)
+	}
+
+	// watchdog
+	if hook := c.watchdog(); hook != nil {
 		srv.lifecycle.Append(hook)
 	}
 

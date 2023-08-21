@@ -26,6 +26,7 @@ import (
 	"github.com/charlesbases/library/regexp"
 	"github.com/charlesbases/library/server/middlewares"
 	"github.com/charlesbases/library/server/middlewares/jwt"
+	"github.com/charlesbases/library/server/websocket"
 	"github.com/charlesbases/library/storage"
 	"github.com/charlesbases/library/storage/s3"
 )
@@ -45,7 +46,9 @@ type configuration struct {
 // spec .
 type spec struct {
 	// JWT jwt
-	JWT specJwtAuth `yaml:"jwt"`
+	JWT webtoken `yaml:"jwt"`
+	// Env env for server
+	Env []*envar `yaml:"env"`
 	// Logging logging
 	Logging logging `yaml:"logging"`
 	// Metrics metrics
@@ -54,18 +57,6 @@ type spec struct {
 	WebSocket ws `yaml:"websocket"`
 	// Plugins plugins
 	Plugins plugins `yaml:"plugins"`
-}
-
-// plugins .
-type plugins struct {
-	// Redis redis
-	Redis pluginRedis `yaml:"redis"`
-	// Broker broker
-	Broker pluginBroker `yaml:"broker"`
-	// Storage storage
-	Storage pluginStorage `yaml:"storage"`
-	// Database database
-	Database pluginDatabase `yaml:"database"`
 }
 
 // logging .
@@ -90,8 +81,8 @@ type ws struct {
 	EnSubscription bool `yaml:"enSubscription"`
 }
 
-// specJwtAuth .
-type specJwtAuth struct {
+// webtoken .
+type webtoken struct {
 	// Enabled enabled
 	Enabled bool `yaml:"enabled"`
 	// Secret jwt secret
@@ -100,6 +91,24 @@ type specJwtAuth struct {
 	Expire int `yaml:"expire"`
 	// Interceptor jwt 拦截器
 	Interceptor *jwt.Interceptor `yaml:"intercept"`
+}
+
+// envar .
+type envar struct {
+	Name  string `yaml:"name"`
+	Value string `yaml:"value"`
+}
+
+// plugins .
+type plugins struct {
+	// Redis redis
+	Redis pluginRedis `yaml:"redis"`
+	// Broker broker
+	Broker pluginBroker `yaml:"broker"`
+	// Storage storage
+	Storage pluginStorage `yaml:"storage"`
+	// Database database
+	Database pluginDatabase `yaml:"database"`
 }
 
 // pluginRedis .
@@ -341,6 +350,39 @@ func (c *configuration) database() *lifecycle.Hook {
 	}
 }
 
+// websocket .
+func (c *configuration) websocket() *lifecycle.Hook {
+	if !c.Spec.WebSocket.Enabled || !c.Spec.WebSocket.EnSubscription {
+		return nil
+	}
+
+	return &lifecycle.Hook{
+		Name: "websocket",
+		OnStart: func(ctx context.Context) error {
+			client, err := broker.GetClient()
+			if err != nil {
+				return err
+			}
+			websocket.InitStation(client)
+			return nil
+		},
+	}
+}
+
+// envar .
+func (c *configuration) envar() error {
+	for _, env := range c.Spec.Env {
+		if regexp.Environment.MatchString(env.Name) {
+			if err := os.Setenv(env.Name, env.Value); err != nil {
+				return err
+			}
+		} else {
+			return fmt.Errorf(`unsupported env name of "%s"`, c.Name)
+		}
+	}
+	return nil
+}
+
 // serverid .
 func (c *configuration) serverid() string {
 	switch model {
@@ -357,7 +399,7 @@ func (c *configuration) serverid() string {
 	case DistributionModel:
 		if hook := c.redis(); hook != nil {
 			// TODO
-			logger.Fatal("")
+			logger.Fatal("TODO")
 		} else {
 			logger.Fatal("invalid redis configuration.")
 		}
@@ -385,6 +427,11 @@ func (c *configuration) server() *Server {
 		logger.Fatalf("the server name of '%s' is not allowed, must match regular of `%s`.", srv.name, regexp.ServerName.String())
 	}
 
+	// parse env
+	if err := c.envar(); err != nil {
+		logger.Fatal()
+	}
+
 	// gin.Engine
 	srv.engine = c.engine()
 
@@ -405,6 +452,12 @@ func (c *configuration) server() *Server {
 
 	// database
 	if hook := c.database(); hook != nil {
+		srv.lifecycle.Append(hook)
+	}
+
+	// websocket
+	// 若启用 websocket 的 subscribe 功能，websocket.InitStation() 需要在 broker 初始化之后调用
+	if hook := c.websocket(); hook != nil {
 		srv.lifecycle.Append(hook)
 	}
 

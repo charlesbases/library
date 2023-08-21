@@ -9,4 +9,6 @@ var (
 	HEX = regexp.MustCompile(`^(0x)?[0-9a-fA-F]+$`)
 	// ServerName server name
 	ServerName = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+	// Environment env name
+	Environment = regexp.MustCompile(`^[A-Z][A-Z_]*$`)
 )

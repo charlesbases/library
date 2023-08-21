@@ -116,6 +116,8 @@ func Run(fn func(srv *Server)) {
 		os.Exit(1)
 	}
 
+	// websocket
+
 	// on stop
 	go func() {
 		c := library.Shutdown()

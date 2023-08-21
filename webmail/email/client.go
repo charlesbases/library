@@ -16,6 +16,8 @@ const (
 	ContentTypePlain ContentType = "text/plain"
 )
 
+var _ webmail.Message = (*Message)(nil)
+
 // Message .
 type Message struct {
 	To          []string    // 收件人

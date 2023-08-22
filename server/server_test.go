@@ -14,7 +14,22 @@ func TestRun(t *testing.T) {
 
 	Run(func(srv *Server) {
 		srv.RegisterRouter(func(r *Router) {
-			r.GET("/", func(ctx *hfwctx.Context) {
+			r.GET("/get", func(ctx *hfwctx.Context) {
+				ctx.ReturnData(library.NowString())
+			})
+		})
+		srv.RegisterRouter(func(r *Router) {
+			r.POST("/post", func(ctx *hfwctx.Context) {
+				ctx.ReturnData(library.NowString())
+			})
+		})
+		srv.RegisterRouter(func(r *Router) {
+			r.PUT("/put", func(ctx *hfwctx.Context) {
+				ctx.ReturnData(library.NowString())
+			})
+		})
+		srv.RegisterRouter(func(r *Router) {
+			r.DELETE("/delete", func(ctx *hfwctx.Context) {
 				ctx.ReturnData(library.NowString())
 			})
 		})

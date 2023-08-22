@@ -381,14 +381,18 @@ func (c *configuration) websocket() *lifecycle.Hook {
 // watchdog .
 func (c *configuration) watchdog() *lifecycle.Hook {
 	if c.Spec.Watchdog.Enable {
-		if onstop := watchdog.Memory(); onstop != nil {
-			return &lifecycle.Hook{
-				Name: "watchdog",
-				OnStop: func(ctx context.Context) error {
-					onstop()
-					return nil
-				},
-			}
+		var onstop func()
+
+		return &lifecycle.Hook{
+			Name: "watchdog",
+			OnStart: func(ctx context.Context) error {
+				onstop = watchdog.Memory()
+				return nil
+			},
+			OnStop: func(ctx context.Context) error {
+				onstop()
+				return nil
+			},
 		}
 	}
 

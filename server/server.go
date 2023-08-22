@@ -113,21 +113,13 @@ func Run(fn func(srv *Server)) {
 
 	// on start
 	if err := srv.lifecycle.Start(srv.ctx); err != nil {
-		os.Exit(1)
+		srv.stop()
 	}
-
-	// websocket
 
 	// on stop
 	go func() {
-		c := library.Shutdown()
-		select {
-		case <-c:
-			srv.lifecycle.Stop(srv.ctx)
-			logger.Flush()
-			close(c)
-		}
-		os.Exit(1)
+		<-library.Shutdown()
+		srv.stop()
 	}()
 
 	// run
@@ -136,4 +128,12 @@ func Run(fn func(srv *Server)) {
 	if err := srv.engine.Run(srv.port); err != nil {
 		logger.Fatal(err)
 	}
+}
+
+// stop .
+func (srv *Server) stop() {
+	srv.lifecycle.Stop(srv.ctx)
+	logger.Flush()
+
+	os.Exit(1)
 }

@@ -2,7 +2,6 @@ package redis
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"time"
 
@@ -25,30 +24,8 @@ var (
 	}
 )
 
-type ClientType string
-
-const (
-	RedisClient  ClientType = "client"
-	RedisCluster ClientType = "cluster"
-)
-
-// Options .
-type Options struct {
-	Context context.Context
-	// Type client or cluster
-	Type     ClientType
-	Addrs    []string
-	Username string
-	Password string
-	// Timeout second
-	Timeout time.Duration
-	// MaxRetries 命令执行失败时的重试次数
-	MaxRetries int
-}
-
-// client .
-func (o *Options) client() *redis.Client {
-	return redis.NewClient(&redis.Options{
+var RedisClient Cmdable = func(o *Options) (redis.Cmdable, func() error) {
+	client := redis.NewClient(&redis.Options{
 		Addr:         o.Addrs[0],
 		Username:     o.Username,
 		Password:     o.Password,
@@ -62,11 +39,12 @@ func (o *Options) client() *redis.Client {
 		// 	InsecureSkipVerify: true,
 		// },
 	})
+
+	return client, client.Close
 }
 
-// cluster .
-func (o *Options) cluster() *redis.ClusterClient {
-	return redis.NewClusterClient(&redis.ClusterOptions{
+var RedisCluster Cmdable = func(o *Options) (redis.Cmdable, func() error) {
+	cluster := redis.NewClusterClient(&redis.ClusterOptions{
 		Addrs:        o.Addrs,
 		Username:     o.Username,
 		Password:     o.Password,
@@ -80,43 +58,25 @@ func (o *Options) cluster() *redis.ClusterClient {
 		// 	InsecureSkipVerify: true,
 		// },
 	})
+
+	return cluster, cluster.Close
 }
 
-// newc .
-func (o *Options) newc() (*rkv, error) {
-	redis.SetLogger(new(disprint))
+type Cmdable func(o *Options) (redis.Cmdable, func() error)
 
-	var r *rkv
-	switch o.Type {
-	case RedisClient:
-		client := o.client()
-		r = &rkv{opts: o, client: client, closing: client.Close}
-	case RedisCluster:
-		client := o.cluster()
-		r = &rkv{opts: o, client: client, closing: client.Close}
-	default:
-		return nil, fmt.Errorf(`[redis] unsupported type of %s`, o.Type)
-	}
+// Options .
+type Options struct {
+	Context  context.Context
+	Addrs    []string
+	Username string
+	Password string
+	// Timeout second
+	Timeout time.Duration
+	// MaxRetries 命令执行失败时的重试次数
+	MaxRetries int
 
-	if err := r.ping(); err != nil {
-		return nil, err
-	}
-	return r, nil
-}
-
-// parseoptions .
-func parseoptions(opts ...func(o *Options)) *Options {
-	o := &Options{
-		Type:       RedisClient,
-		Addrs:      []string{"0.0.0.0:6379"},
-		Context:    defaultContext,
-		Timeout:    defaultTimeout,
-		MaxRetries: defaultRetries,
-	}
-	for _, opt := range opts {
-		opt(o)
-	}
-	return o
+	// Cmdable redis redis.Cmdable
+	Cmdable Cmdable
 }
 
 // SetOptions .

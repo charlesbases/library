@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -12,6 +13,9 @@ import (
 	"github.com/charlesbases/library"
 	"github.com/charlesbases/library/codec"
 )
+
+// ErrRedisNotReady redis is not ready
+var ErrRedisNotReady = errors.New("redis is not ready")
 
 // lockprefix redis 分布式锁的 key 前缀
 var lockprefix = KeyPrefix("lock_")
@@ -127,6 +131,7 @@ var r *rkv
 type rkv struct {
 	opts    *Options
 	client  redis.Cmdable
+	active  bool
 	closing func() error
 }
 
@@ -242,25 +247,51 @@ func (r *rkv) Close() error {
 func (r *rkv) ping() error {
 	if err := r.client.Ping(r.opts.Context).Err(); err != nil {
 		logger.ErrorfWithContext(r.opts.Context, `[redis] ping failed. %s`, err.Error())
+		r.active = false
 		return err
 	}
+	r.active = true
 	return nil
 }
 
-// disprint .
-type disprint struct{}
+// nodisplay .
+type nodisplay struct{}
 
 // Printf .
-func (l *disprint) Printf(_ context.Context, _ string, _ ...interface{}) {}
+func (l *nodisplay) Printf(_ context.Context, _ string, _ ...interface{}) {}
 
 // NewClient .
 func NewClient(opts ...func(o *Options)) (*rkv, error) {
-	return parseoptions(opts...).newc()
+	redis.SetLogger(new(nodisplay))
+
+	options := &Options{
+		Cmdable:    RedisClient,
+		Addrs:      []string{"0.0.0.0:6379"},
+		Context:    defaultContext,
+		Timeout:    defaultTimeout,
+		MaxRetries: defaultRetries,
+	}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	client, close := options.Cmdable(options)
+
+	r := &rkv{
+		opts:    options,
+		client:  client,
+		closing: close,
+	}
+
+	if err := r.ping(); err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
-// Init .
+// Init init default redis
 func Init(opts ...func(o *Options)) error {
-	if client, err := parseoptions(opts...).newc(); err != nil {
+	if client, err := NewClient(opts...); err != nil {
 		return err
 	} else {
 		r = client
@@ -270,11 +301,7 @@ func Init(opts ...func(o *Options)) error {
 
 // Client .
 func Client() *rkv {
-	if r != nil {
-		return r
-	}
-	logger.Fatal(`redis is nil`)
-	return nil
+	return r
 }
 
 // Close .

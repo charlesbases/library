@@ -16,7 +16,7 @@ import (
 func TestClient(t *testing.T) {
 	ctx := context.WithValue(context.Background(), library.HeaderTraceID, uuid.NewString())
 
-	r, _ := NewClient(func(o *Options) {
+	Init(func(o *Options) {
 		o.Addrs = []string{"10.63.2.46:6379"}
 		o.Password = "admin123456.."
 		o.Context = ctx
@@ -76,7 +76,7 @@ func TestClient(t *testing.T) {
 
 	// Mutex
 	{
-		rm := r.Mutex(key, func(o *MutexOptions) {
+		rm, _ := r.Mutex(key, func(o *MutexOptions) {
 			o.Context = ctx
 		})
 		go func() {

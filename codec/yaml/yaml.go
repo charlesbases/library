@@ -62,7 +62,7 @@ func (c *c) Unmarshal(data []byte, v interface{}) error {
 	return yaml.Unmarshal(data, v)
 }
 
-func (c *c) ShowMessage(data []byte) string {
+func (c *c) RawMessage(data []byte) string {
 	return string(data)
 }
 

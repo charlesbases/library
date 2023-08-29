@@ -35,7 +35,7 @@ func (c *c) Unmarshal(d []byte, v interface{}) error {
 	return json.Unmarshal(d, v)
 }
 
-func (c *c) ShowMessage(data []byte) string {
+func (c *c) RawMessage(data []byte) string {
 	return string(data)
 }
 

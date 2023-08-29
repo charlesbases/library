@@ -13,7 +13,7 @@ type Decoder interface {
 type Marshaler interface {
 	Marshal(v interface{}) ([]byte, error)
 	Unmarshal(data []byte, v interface{}) error
-	ShowMessage(data []byte) string
+	RawMessage(data []byte) string
 	ContentType() content.Type
 }
 

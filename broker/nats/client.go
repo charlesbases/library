@@ -111,7 +111,7 @@ func (c *client) Publish(subject string, v interface{}, opts ...func(o *broker.P
 		go func() {
 			select {
 			case <-ack.Ok():
-				logger.DebugfWithContext(o.Context, `[nats] publish["%s"] >> %s`, subject, o.Codec.ShowMessage(data))
+				logger.DebugfWithContext(o.Context, `[nats] publish["%s"] >> %s`, subject, o.Codec.RawMessage(data))
 			case err := <-ack.Err():
 				logger.ErrorfWithContext(o.Context, `[nats] publish["%s"] failed. %s`, subject, err.Error())
 			case <-time.NewTimer(5 * time.Second).C:
@@ -140,7 +140,7 @@ func (c *client) Subscribe(subject string, handler broker.Handler, opts ...func(
 	var cb = func(msg *nats.Msg) {
 		msg.Ack()
 
-		logger.Debugf(`[nats] consume["%s"] << %s`, msg.Subject, o.Codec.ShowMessage(msg.Data))
+		logger.Debugf(`[nats] consume["%s"] << %s`, msg.Subject, o.Codec.RawMessage(msg.Data))
 		if err := handler(broker.NewEvent(msg.Subject, msg.Reply, msg.Data, o.Codec)); err != nil {
 			logger.Errorf(`[nats] consume["%s"] failed: %s`, msg.Subject, err.Error())
 		}

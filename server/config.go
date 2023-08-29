@@ -122,9 +122,6 @@ type plugins struct {
 
 // pluginRedis .
 type pluginRedis struct {
-	// inited 是否已经初始化过
-	inited bool `yaml:"-"`
-
 	// Enabled enabled
 	Enabled bool `yaml:"enabled"`
 	// Type client or cluster
@@ -143,9 +140,6 @@ type pluginRedis struct {
 
 // pluginBroker .
 type pluginBroker struct {
-	// inited 是否已经初始化过
-	inited bool `yaml:"-"`
-
 	// Enabled enabled
 	Enabled bool `yaml:"enabled"`
 	// Type type of broker
@@ -160,9 +154,6 @@ type pluginBroker struct {
 
 // pluginStorage .
 type pluginStorage struct {
-	// inited 是否已经初始化过
-	inited bool `yaml:"-"`
-
 	// Enabled enabled
 	Enabled bool `yaml:"enabled"`
 	// Type storage.Type
@@ -181,9 +172,6 @@ type pluginStorage struct {
 
 // pluginDatabase .
 type pluginDatabase struct {
-	// inited 是否已经初始化过
-	inited bool `yaml:"-"`
-
 	// Enabled enabled
 	Enabled bool `yaml:"enabled"`
 	// Type database.Driver
@@ -230,11 +218,10 @@ func (c *configuration) engine() *gin.Engine {
 }
 
 // redis .
-func (c *configuration) redis() *lifecycle.Hook {
-	if !c.Spec.Plugins.Redis.Enabled || c.Spec.Plugins.Redis.inited {
+func (c *configuration) redis(id string) *lifecycle.Hook {
+	if !c.Spec.Plugins.Redis.Enabled {
 		return nil
 	}
-	c.Spec.Plugins.Redis.inited = true
 
 	return &lifecycle.Hook{
 		Name: "redis",
@@ -249,7 +236,7 @@ func (c *configuration) redis() *lifecycle.Hook {
 				return fmt.Errorf(`load configuration failed: unsupported values of 'spec.plugins.redis.type: "%s"'`, c.Spec.Plugins.Database.Type)
 			}
 
-			return redis.Init(func(o *redis.Options) {
+			return redis.Init(id, func(o *redis.Options) {
 				o.Cmdable = cmdable
 				o.Addrs = c.Spec.Plugins.Redis.Address
 				o.Username = c.Spec.Plugins.Redis.Username
@@ -266,11 +253,9 @@ func (c *configuration) redis() *lifecycle.Hook {
 
 // broker .
 func (c *configuration) broker(id string) *lifecycle.Hook {
-	if !c.Spec.Plugins.Broker.Enabled || c.Spec.Plugins.Broker.inited {
+	if !c.Spec.Plugins.Broker.Enabled {
 		return nil
 	}
-
-	c.Spec.Plugins.Broker.inited = true
 
 	return &lifecycle.Hook{
 		Name: c.Spec.Plugins.Broker.Type,
@@ -310,11 +295,9 @@ func (c *configuration) broker(id string) *lifecycle.Hook {
 
 // storage .
 func (c *configuration) storage() *lifecycle.Hook {
-	if !c.Spec.Plugins.Storage.Enabled || c.Spec.Plugins.Storage.inited {
+	if !c.Spec.Plugins.Storage.Enabled {
 		return nil
 	}
-
-	c.Spec.Plugins.Storage.inited = true
 
 	return &lifecycle.Hook{
 		Name: c.Spec.Plugins.Storage.Type,
@@ -341,11 +324,9 @@ func (c *configuration) storage() *lifecycle.Hook {
 
 // database .
 func (c *configuration) database() *lifecycle.Hook {
-	if !c.Spec.Plugins.Database.Enabled || c.Spec.Plugins.Database.inited {
+	if !c.Spec.Plugins.Database.Enabled {
 		return nil
 	}
-
-	c.Spec.Plugins.Database.inited = true
 
 	return &lifecycle.Hook{
 		Name: c.Spec.Plugins.Database.Type,
@@ -437,12 +418,7 @@ func (c *configuration) serverid() string {
 		}
 		return strings.Join([]string{c.Name, hosname}, ".")
 	case DistributionModel:
-		if hook := c.redis(); hook != nil {
-			// TODO
-			logger.Fatal("TODO")
-		} else {
-			logger.Fatal("invalid redis configuration.")
-		}
+		logger.Fatal("TODO")
 	default:
 		logger.Fatal("unsupported model of: ", model)
 	}
@@ -476,7 +452,7 @@ func (c *configuration) server() *Server {
 	srv.engine = c.engine()
 
 	// redis
-	if hook := c.redis(); hook != nil {
+	if hook := c.redis(srv.id); hook != nil {
 		srv.lifecycle.Append(hook)
 	}
 

@@ -90,6 +90,7 @@ var r *rkv
 
 // rkv .
 type rkv struct {
+	id      string
 	opts    *Options
 	client  redis.Cmdable
 	active  bool
@@ -269,7 +270,7 @@ type nodisplay struct{}
 func (l *nodisplay) Printf(_ context.Context, _ string, _ ...interface{}) {}
 
 // NewClient .
-func NewClient(opts ...func(o *Options)) (*rkv, error) {
+func NewClient(id string, opts ...func(o *Options)) (*rkv, error) {
 	redis.SetLogger(new(nodisplay))
 
 	options := &Options{
@@ -286,6 +287,7 @@ func NewClient(opts ...func(o *Options)) (*rkv, error) {
 	client, close := options.Cmdable(options)
 
 	r := &rkv{
+		id:      id,
 		opts:    options,
 		client:  client,
 		closing: close,
@@ -298,8 +300,8 @@ func NewClient(opts ...func(o *Options)) (*rkv, error) {
 }
 
 // Init init default redis
-func Init(opts ...func(o *Options)) error {
-	if client, err := NewClient(opts...); err != nil {
+func Init(id string, opts ...func(o *Options)) error {
+	if client, err := NewClient(id, opts...); err != nil {
 		return err
 	} else {
 		r = client

@@ -4,9 +4,9 @@ import "errors"
 
 var (
 	// ErrorInvaildDsn invalid addrs
-	ErrorInvaildDsn = errors.New("database: invalid dsn")
+	ErrorInvaildDsn = errors.New("invalid dsn of database")
 	// ErrorDatabaseNil db is not initialized or closed
-	ErrorDatabaseNil = errors.New("database: db is not initialized or closed")
+	ErrorDatabaseNil = errors.New("database is not ready")
 )
 
 // Options .

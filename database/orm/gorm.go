@@ -3,19 +3,14 @@ package orm
 import (
 	"fmt"
 
-	"github.com/charlesbases/logger"
 	"gorm.io/gorm"
 
 	"github.com/charlesbases/library/database"
 	"github.com/charlesbases/library/database/orm/driver"
+	"github.com/charlesbases/library/logger"
 )
 
-var db *client
-
-// client .
-type client struct {
-	*gorm.DB
-}
+var db *gorm.DB
 
 // configuration .
 func configuration(opts ...func(o *database.Options)) *database.Options {
@@ -26,8 +21,8 @@ func configuration(opts ...func(o *database.Options)) *database.Options {
 	return options
 }
 
-// New new db
-func New(fn driver.Driver, opts ...func(o *database.Options)) (*client, error) {
+// NewClient new db
+func NewClient(fn driver.Driver, opts ...func(o *database.Options)) (*gorm.DB, error) {
 	var options = configuration(opts...)
 	if len(options.Address) == 0 {
 		return nil, database.ErrorInvaildDsn
@@ -52,12 +47,12 @@ func New(fn driver.Driver, opts ...func(o *database.Options)) (*client, error) {
 		db.SetMaxIdleConns(options.MaxIdleConns)
 	}
 
-	return &client{DB: gormDB}, nil
+	return gormDB, nil
 }
 
-// Init init defaultDB
+// Init init default client
 func Init(fn driver.Driver, opts ...func(o *database.Options)) error {
-	client, err := New(fn, opts...)
+	client, err := NewClient(fn, opts...)
 	if err != nil {
 		return err
 	}
@@ -66,18 +61,23 @@ func Init(fn driver.Driver, opts ...func(o *database.Options)) error {
 	return nil
 }
 
-// DB return db
-func DB() *client {
-	if db != nil {
-		return db
-	} else {
-		logger.Fatalf("get db failed. %s", database.ErrorDatabaseNil.Error())
-		return nil
+// Do do something with db
+func Do(fn func(db *gorm.DB) error) error {
+	if db == nil {
+		logger.Error(database.ErrorDatabaseNil.Error())
+		return database.ErrorDatabaseNil
 	}
+
+	return fn(db)
 }
 
-// Transaction transaction of defaultDB
-func (db *client) Transaction(fs ...func(tx *gorm.DB) error) error {
+// Transaction transaction with db
+func Transaction(fs ...func(tx *gorm.DB) error) error {
+	if db == nil {
+		logger.Error(database.ErrorDatabaseNil.Error())
+		return database.ErrorDatabaseNil
+	}
+
 	tx := db.Begin()
 	defer func() {
 		if r := recover(); r != nil {

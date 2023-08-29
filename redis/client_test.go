@@ -22,9 +22,9 @@ func TestClient(t *testing.T) {
 		o.Context = ctx
 	})
 
-	var fnGet = func(key string) {
-		output, err := r.Get(key)
-		if err != nil {
+	var fnGet = func(key keyword) {
+		output := r.Get(key)
+		if output.err != nil {
 			// logger.Fatal(err)
 		}
 
@@ -43,14 +43,11 @@ func TestClient(t *testing.T) {
 	// }
 
 	keyprefix := KeyPrefix("t_")
-	key := keyprefix.Key("time")
+	key := keyprefix("time")
 
 	// Set
 	{
-		r.Set(&Input{
-			Key: key,
-			Val: library.NowString(),
-		}, func(o *SetOptions) {
+		r.Set(key, library.NowString(), func(o *SetOptions) {
 			o.TTL = 3 * time.Second
 			o.Context = ctx
 		})
@@ -76,7 +73,7 @@ func TestClient(t *testing.T) {
 
 	// Mutex
 	{
-		rm, _ := r.Mutex(key, func(o *MutexOptions) {
+		rm := r.Mutex(key, func(o *MutexOptions) {
 			o.Context = ctx
 		})
 		go func() {

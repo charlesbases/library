@@ -90,8 +90,8 @@ type SetOptions struct {
 	Marshaler codec.Marshaler
 }
 
-// parsesetoptions .
-func parsesetoptions(opts ...func(o *SetOptions)) *SetOptions {
+// setoptions .
+func setoptions(opts ...func(o *SetOptions)) *SetOptions {
 	o := &SetOptions{
 		Context:   defaultContext,
 		Marshaler: defaultMarshaler,
@@ -109,8 +109,8 @@ type GetOptions struct {
 	Marshaler codec.Marshaler
 }
 
-// parsegetoptions .
-func parsegetoptions(opts ...func(o *GetOptions)) *GetOptions {
+// getoptions .
+func getoptions(opts ...func(o *GetOptions)) *GetOptions {
 	o := &GetOptions{
 		Context:   defaultContext,
 		Marshaler: defaultMarshaler,
@@ -126,8 +126,8 @@ type DelOptions struct {
 	Context context.Context
 }
 
-// parsedeloptions .
-func parsedeloptions(opts ...func(o *DelOptions)) *DelOptions {
+// deloptions .
+func deloptions(opts ...func(o *DelOptions)) *DelOptions {
 	o := &DelOptions{
 		Context: defaultContext,
 	}
@@ -148,8 +148,8 @@ type MutexOptions struct {
 	TTL time.Duration
 }
 
-// parsemutexoptions .
-func parsemutexoptions(opts ...func(o *MutexOptions)) *MutexOptions {
+// mutexoptions .
+func mutexoptions(opts ...func(o *MutexOptions)) *MutexOptions {
 	o := &MutexOptions{
 		Context:   defaultContext,
 		Heartbeat: defaultMutexHeartbeat,
@@ -170,8 +170,8 @@ type ExpireOptions struct {
 	Expiry time.Time
 }
 
-// parseexpireoptions .
-func parseexpireoptions(opts ...func(o *ExpireOptions)) *ExpireOptions {
+// expireoptions .
+func expireoptions(opts ...func(o *ExpireOptions)) *ExpireOptions {
 	o := &ExpireOptions{
 		Context: defaultContext,
 	}

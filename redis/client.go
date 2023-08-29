@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -11,7 +12,6 @@ import (
 	"github.com/charlesbases/library/logger"
 
 	"github.com/charlesbases/library"
-	"github.com/charlesbases/library/codec"
 )
 
 // ErrRedisNotReady redis is not ready
@@ -20,36 +20,44 @@ var ErrRedisNotReady = errors.New("redis is not ready")
 // lockprefix redis 分布式锁的 key 前缀
 var lockprefix = KeyPrefix("lock_")
 
-// Key 添加 key 的前缀或后缀
-type Key func(key string) string
+type keyword string
 
-// Key .
-func (k Key) Key(key string) string {
-	return k(key)
+var Key = func(key string) keyword {
+	return keyword(key)
 }
 
-// KeyPrefix .
-func KeyPrefix(prefix string) Key {
-	return func(key string) string {
-		return prefix + key
+var KeyPrefix = func(prefix string) func(key string) keyword {
+	return func(key string) keyword {
+		var builder strings.Builder
+		builder.WriteString(prefix)
+		builder.WriteString(key)
+		return keyword(builder.String())
 	}
 }
 
-// KeySuffix .
-func KeySuffix(suffix string) Key {
-	return func(key string) string {
-		return key + suffix
+var KeySuffix = func(suffix string) func(key string) keyword {
+	return func(key string) keyword {
+		var builder strings.Builder
+		builder.WriteString(key)
+		builder.WriteString(suffix)
+		return keyword(builder.String())
 	}
 }
 
 // Mutex redis 分布式锁
 type Mutex struct {
 	*rkv
-	key  string
+	key  keyword
+	err  error
 	opts *MutexOptions
 
 	tk *time.Ticker // 尝试获取锁的时间间隔
 	tm *time.Timer  // 超时后自动删除
+}
+
+// Err .
+func (m *Mutex) Err() error {
+	return m.err
 }
 
 // Lock .
@@ -57,7 +65,7 @@ func (m *Mutex) Lock() {
 	for {
 		select {
 		case <-m.tk.C:
-			ok, _ := m.client.SetNX(m.opts.Context, m.key, m.opts.Mark, m.opts.TTL).Result()
+			ok, _ := m.client.SetNX(m.opts.Context, string(m.key), m.opts.Mark, m.opts.TTL).Result()
 			if ok {
 				logger.DebugfWithContext(m.opts.Context, `[redis](%s) locked %v.`, m.key, m.opts.TTL)
 				return
@@ -77,53 +85,6 @@ func (m *Mutex) Unlock() {
 	})
 }
 
-// Input .
-type Input struct {
-	Key string      `json:"key"`
-	Val interface{} `json:"val"`
-}
-
-type Output interface {
-	Key() string
-	RawMessage() []byte
-	TTL() time.Duration
-	Expiry() time.Time
-	Unmarshal(v interface{}) error
-}
-
-// output .
-type output struct {
-	key       string
-	data      []byte
-	ttl       time.Duration
-	expiry    time.Time
-	marshaler codec.Marshaler
-}
-
-func (o *output) Key() string {
-	return o.key
-}
-
-func (o *output) RawMessage() []byte {
-	return o.data
-}
-
-func (o *output) TTL() time.Duration {
-	return o.ttl
-}
-
-func (o *output) Expiry() time.Time {
-	return o.expiry
-}
-
-func (o *output) Unmarshal(v interface{}) error {
-	if len(o.data) == 0 {
-		return fmt.Errorf("[redis](%s) value is nil.", o.key)
-	}
-
-	return o.marshaler.Unmarshal(o.data, v)
-}
-
 // r default client
 var r *rkv
 
@@ -135,62 +96,90 @@ type rkv struct {
 	closing func() error
 }
 
+// isReady .
+func (r *rkv) isReady() bool {
+	if r != nil && r.active {
+		return true
+	}
+	return false
+}
+
 // Set .
-func (r *rkv) Set(rec *Input, opts ...func(o *SetOptions)) error {
-	var sopts = parsesetoptions(opts...)
+func (r *rkv) Set(key keyword, val interface{}, opts ...func(o *SetOptions)) *StatusOutput {
+	var sopts = setoptions(opts...)
+
+	output := &StatusOutput{baseOutput: baseOutput{ctx: sopts.Context, key: string(key)}}
+	if !r.isReady() {
+		output.err = ErrRedisNotReady
+		return output
+	}
 
 	if !sopts.Expiry.IsZero() {
 		sopts.TTL = time.Since(sopts.Expiry)
 	}
 
-	data, err := sopts.Marshaler.Marshal(rec.Val)
+	data, err := sopts.Marshaler.Marshal(val)
 	if err != nil {
-		logger.ErrorfWithContext(sopts.Context, `[redis](%s) set failed. %s`, rec.Key, err.Error())
-		return err
+		logger.ErrorfWithContext(sopts.Context, `[redis](%s) set failed. %s`, key, err.Error())
+		output.err = err
+		return output
 	}
 
-	if err := r.client.Set(sopts.Context, rec.Key, data, sopts.TTL).Err(); err != nil {
-		logger.ErrorfWithContext(sopts.Context, `[redis](%s) set failed. %s`, rec.Key, err.Error())
-		return err
+	if err := r.client.Set(sopts.Context, string(key), data, sopts.TTL).Err(); err != nil {
+		logger.ErrorfWithContext(sopts.Context, `[redis](%s) set failed. %s`, key, err.Error())
+		output.err = err
+		return output
 	}
 
-	return nil
+	return output
 }
 
 // Get .
-func (r *rkv) Get(key string, opts ...func(o *GetOptions)) (Output, error) {
-	var gopts = parsegetoptions(opts...)
+func (r *rkv) Get(key keyword, opts ...func(o *GetOptions)) *BytesOutput {
+	var gopts = getoptions(opts...)
 
-	data, err := r.client.Get(gopts.Context, key).Bytes()
+	output := &BytesOutput{marshaler: gopts.Marshaler, baseOutput: baseOutput{ctx: gopts.Context, key: string(key)}}
+	if !r.isReady() {
+		output.err = ErrRedisNotReady
+		return output
+	}
+
+	data, err := r.client.Get(gopts.Context, string(key)).Bytes()
 	if err != nil {
 		logger.ErrorfWithContext(gopts.Context, `[redis](%s) get failed. %s`, key, err.Error())
-		return &output{key: key}, err
+		output.err = err
+		return output
 	}
 
-	ttl, err := r.client.TTL(gopts.Context, key).Result()
+	ttl, err := r.client.TTL(gopts.Context, string(key)).Result()
 	if err != nil {
 		logger.ErrorfWithContext(gopts.Context, `[redis](%s) get.ttl failed. %s`, key, err.Error())
-		return &output{key: key}, err
+		output.err = err
+		return output
 	}
 
-	return &output{
-		key:       key,
-		data:      data,
-		ttl:       ttl,
-		expiry:    time.Now().Add(ttl),
-		marshaler: gopts.Marshaler,
-	}, nil
+	output.val = data
+	output.ttl = ttl
+	output.expiry = time.Now().Add(ttl)
+	return output
 }
 
 // Del .
-func (r *rkv) Del(key string, opts ...func(o *DelOptions)) error {
-	var dopts = parsedeloptions(opts...)
+func (r *rkv) Del(key keyword, opts ...func(o *DelOptions)) *StatusOutput {
+	var dopts = deloptions(opts...)
+
+	output := &StatusOutput{baseOutput: baseOutput{ctx: dopts.Context, key: string(key)}}
+	if !r.isReady() {
+		output.err = ErrRedisNotReady
+		return output
+	}
 
 	newkey := fmt.Sprintf(`%s_delete_%d`, key, library.NowTimestamp())
 	// rename
-	if err := r.client.RenameNX(dopts.Context, key, newkey).Err(); err != nil {
+	if err := r.client.RenameNX(dopts.Context, string(key), newkey).Err(); err != nil {
 		logger.ErrorfWithContext(dopts.Context, `[redis](%s) del failed. %s`, key, err.Error())
-		return err
+		output.err = err
+		return output
 	}
 	// delete
 	go func() {
@@ -199,28 +188,40 @@ func (r *rkv) Del(key string, opts ...func(o *DelOptions)) error {
 		}
 	}()
 
-	return nil
+	return output
 }
 
 // Expire .
-func (r *rkv) Expire(key string, opts ...func(o *ExpireOptions)) error {
-	var eopts = parseexpireoptions(opts...)
+func (r *rkv) Expire(key keyword, opts ...func(o *ExpireOptions)) *StatusOutput {
+	var eopts = expireoptions(opts...)
 
-	// ExpireAt
-	if !eopts.Expiry.IsZero() {
-		return r.client.ExpireAt(eopts.Context, key, eopts.Expiry).Err()
+	output := &StatusOutput{baseOutput: baseOutput{ctx: eopts.Context, key: string(key)}}
+	if !r.isReady() {
+		output.err = ErrRedisNotReady
+		return output
 	}
 
-	// TTL
-	return r.client.Expire(eopts.Context, key, eopts.TTL).Err()
+	if !eopts.Expiry.IsZero() {
+		// ExpireAt
+		output.err = r.client.ExpireAt(eopts.Context, string(key), eopts.Expiry).Err()
+	} else {
+		// TTL
+		output.err = r.client.Expire(eopts.Context, string(key), eopts.TTL).Err()
+	}
+
+	return output
 }
 
 // Mutex .
-func (r *rkv) Mutex(key string, opts ...func(o *MutexOptions)) *Mutex {
-	var mopts = parsemutexoptions(opts...)
+func (r *rkv) Mutex(key keyword, opts ...func(o *MutexOptions)) *Mutex {
+	if !r.isReady() {
+		return &Mutex{err: ErrRedisNotReady}
+	}
+
+	var mopts = mutexoptions(opts...)
 	return &Mutex{
 		rkv:  r,
-		key:  lockprefix.Key(key),
+		key:  lockprefix(string(key)),
 		opts: mopts,
 		tk:   time.NewTicker(mopts.Heartbeat),
 		tm:   time.NewTimer(mopts.TTL),
@@ -229,7 +230,7 @@ func (r *rkv) Mutex(key string, opts ...func(o *MutexOptions)) *Mutex {
 
 // IsExists .
 func (r *rkv) IsExists(key string, opts ...func(o *GetOptions)) bool {
-	var gopts = parsegetoptions(opts...)
+	var gopts = getoptions(opts...)
 	if r.client.Exists(gopts.Context, key).Val() != 0 {
 		return true
 	}

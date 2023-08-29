@@ -128,7 +128,7 @@ type pluginRedis struct {
 	// Enabled enabled
 	Enabled bool `yaml:"enabled"`
 	// Type client or cluster
-	Type redis.ClientType `yaml:"type"`
+	Type string `yaml:"type"`
 	// Address address for redis
 	Address []string `yaml:"address"`
 	// Username username
@@ -239,8 +239,18 @@ func (c *configuration) redis() *lifecycle.Hook {
 	return &lifecycle.Hook{
 		Name: "redis",
 		OnStart: func(ctx context.Context) error {
+			var cmdable redis.Cmdable
+			switch c.Spec.Plugins.Redis.Type {
+			case "client":
+				cmdable = redis.RedisClient
+			case "cluster":
+				cmdable = redis.RedisCluster
+			default:
+				return fmt.Errorf(`load configuration failed: unsupported values of 'spec.plugins.redis.type: "%s"'`, c.Spec.Plugins.Database.Type)
+			}
+
 			return redis.Init(func(o *redis.Options) {
-				o.Type = c.Spec.Plugins.Redis.Type
+				o.Cmdable = cmdable
 				o.Addrs = c.Spec.Plugins.Redis.Address
 				o.Username = c.Spec.Plugins.Redis.Username
 				o.Password = c.Spec.Plugins.Redis.Password

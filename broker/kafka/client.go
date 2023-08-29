@@ -42,7 +42,7 @@ func (c *consumerGroup) ConsumeClaim(session sarama.ConsumerGroupSession, claim 
 
 			session.MarkMessage(message, "")
 
-			logger.Debugf(`[kafka] consume["%s"] << %s`, message.Topic, c.opts.Codec.ShowMessage(message.Value))
+			logger.Debugf(`[kafka] consume["%s"] << %s`, message.Topic, c.opts.Codec.RawMessage(message.Value))
 
 			go func() {
 				if err := c.h(broker.NewEvent(message.Topic, message.Topic, message.Value, c.opts.Codec)); err != nil {
@@ -143,7 +143,7 @@ func (c *client) Publish(topic string, v interface{}, opts ...func(o *broker.Pub
 		Value: sarama.ByteEncoder(data),
 	}
 
-	logger.DebugfWithContext(o.Context, `[kafka] publish["%s"] >> %s`, topic, o.Codec.ShowMessage(data))
+	logger.DebugfWithContext(o.Context, `[kafka] publish["%s"] >> %s`, topic, o.Codec.RawMessage(data))
 	return nil
 }
 

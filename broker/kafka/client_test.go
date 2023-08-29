@@ -14,8 +14,8 @@ import (
 )
 
 func Test(t *testing.T) {
-	c, err := New("test."+uuid.NewString(), func(o *broker.Options) {
-		o.Address = "10.63.3.11:31520"
+	c, err := NewClient("test."+uuid.NewString(), func(o *broker.Options) {
+		o.Address = "10.75.2.8:32509"
 		o.Version = "3.3.1"
 	})
 	if err != nil {

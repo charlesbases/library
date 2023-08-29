@@ -16,7 +16,7 @@ import (
 func TestClient(t *testing.T) {
 	ctx := context.WithValue(context.Background(), library.HeaderTraceID, uuid.NewString())
 
-	Init(func(o *Options) {
+	Init(uuid.NewString(), func(o *Options) {
 		o.Addrs = []string{"10.63.2.46:6379"}
 		o.Password = "admin123456.."
 		o.Context = ctx
@@ -29,7 +29,7 @@ func TestClient(t *testing.T) {
 		}
 
 		var v string
-		if output.Unmarshal(&v) == nil {
+		if output.Unmarshal(JsonWrap(&v)) == nil {
 			fmt.Println("value :", v)
 			fmt.Println("ttl   :", output.TTL())
 			fmt.Println("expire:", output.Expiry())
@@ -47,8 +47,8 @@ func TestClient(t *testing.T) {
 
 	// Set
 	{
-		Client().Set(key, library.NowString(), func(o *SetOptions) {
-			o.TTL = 3 * time.Second
+		Client().Set(key, JsonWrap(library.NowString()), func(o *SetOptions) {
+			o.TTL = 3 * time.Minute
 			o.Context = ctx
 		})
 

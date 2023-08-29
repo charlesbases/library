@@ -229,12 +229,19 @@ func (r *rkv) Mutex(key keyword, opts ...func(o *MutexOptions)) *Mutex {
 }
 
 // IsExists .
-func (r *rkv) IsExists(key string, opts ...func(o *GetOptions)) bool {
+func (r *rkv) IsExists(key string, opts ...func(o *GetOptions)) *BoolOutput {
 	var gopts = getoptions(opts...)
-	if r.client.Exists(gopts.Context, key).Val() != 0 {
-		return true
+
+	output := &BoolOutput{baseOutput: baseOutput{ctx: gopts.Context, key: string(key)}}
+	if !r.isReady() {
+		output.err = ErrRedisNotReady
+		return output
 	}
-	return false
+
+	if r.client.Exists(gopts.Context, key).Val() != 0 {
+		output.val = true
+	}
+	return output
 }
 
 func (r *rkv) Close() error {

@@ -34,6 +34,18 @@ type StatusOutput struct {
 	baseOutput
 }
 
+// BoolOutput .
+type BoolOutput struct {
+	baseOutput
+
+	val bool
+}
+
+// Val .
+func (o *BoolOutput) Val() bool {
+	return o.val
+}
+
 // BytesOutput .
 type BytesOutput struct {
 	baseOutput

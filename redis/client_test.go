@@ -23,7 +23,7 @@ func TestClient(t *testing.T) {
 	})
 
 	var fnGet = func(key keyword) {
-		output := r.Get(key)
+		output := Client().Get(key)
 		if output.err != nil {
 			// logger.Fatal(err)
 		}
@@ -47,7 +47,7 @@ func TestClient(t *testing.T) {
 
 	// Set
 	{
-		r.Set(key, library.NowString(), func(o *SetOptions) {
+		Client().Set(key, library.NowString(), func(o *SetOptions) {
 			o.TTL = 3 * time.Second
 			o.Context = ctx
 		})
@@ -73,7 +73,7 @@ func TestClient(t *testing.T) {
 
 	// Mutex
 	{
-		rm := r.Mutex(key, func(o *MutexOptions) {
+		rm := Client().Mutex(key, func(o *MutexOptions) {
 			o.Context = ctx
 		})
 		go func() {

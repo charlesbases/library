@@ -12,15 +12,17 @@ import (
 )
 
 var (
-	defaultContext        = context.Background()
-	defaultTimeout        = 3 * time.Second
-	defaultRetries        = 0
-	defaultMarshaler      = json.Marshaler
-	defaultMutexHeartbeat = 100 * time.Millisecond
+	defaultContext   = context.Background()
+	defaultTimeout   = 3 * time.Second
+	defaultRetries   = 0
+	defaultMarshaler = json.Marshaler
+
+	defaultMutexTTL      = 5 * time.Second
+	defaultMutexInterval = 50 * time.Millisecond
 
 	// RandomExpiry 0-24h 随机过期时间
 	RandomExpiry = func() time.Duration {
-		return time.Duration(rand.Intn(86400)) * time.Second
+		return time.Duration(rand.Intn(24 * int(time.Hour)))
 	}
 )
 
@@ -140,20 +142,18 @@ func deloptions(opts ...func(o *DelOptions)) *DelOptions {
 // MutexOptions .
 type MutexOptions struct {
 	Context context.Context
-	// Mark 分布式锁标记
-	Mark string
-	// Heartbeat 尝试获取锁的时间间隔
-	Heartbeat time.Duration
-	// TTL 超时时间
+	// Interval 尝试获取锁的时间间隔
+	Interval time.Duration
+	// TTL 加锁后，超时自动删除锁
 	TTL time.Duration
 }
 
 // mutexoptions .
 func mutexoptions(opts ...func(o *MutexOptions)) *MutexOptions {
 	o := &MutexOptions{
-		Context:   defaultContext,
-		Heartbeat: defaultMutexHeartbeat,
-		TTL:       defaultTimeout,
+		Context:  defaultContext,
+		Interval: defaultMutexInterval,
+		TTL:      defaultMutexTTL,
 	}
 	for _, opt := range opts {
 		opt(o)

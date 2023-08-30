@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -73,40 +74,60 @@ func TestClient(t *testing.T) {
 
 	// Mutex
 	{
+
 		rm := Client().Mutex(key, func(o *MutexOptions) {
 			o.Context = ctx
 		})
+
+		swg := sync.WaitGroup{}
+
 		go func() {
+			swg.Add(1)
+			defer func() { swg.Done() }()
+
 			rm.Lock()
 			logger.Debug("lock 1")
 			rm.Unlock()
 		}()
 
 		go func() {
+			swg.Add(1)
+			defer func() { swg.Done() }()
+
 			rm.Lock()
 			logger.Debug("lock 2")
 			rm.Unlock()
 		}()
 
 		go func() {
+			swg.Add(1)
+			defer func() { swg.Done() }()
+
 			rm.Lock()
 			logger.Debug("lock 3")
 			rm.Unlock()
 		}()
 
 		go func() {
+			swg.Add(1)
+			defer func() { swg.Done() }()
+
 			rm.Lock()
 			logger.Debug("lock 4")
 			rm.Unlock()
 		}()
 
 		go func() {
+			swg.Add(1)
+			defer func() { swg.Done() }()
+
 			rm.Lock()
 			logger.Debug("lock 5")
 			rm.Unlock()
 		}()
 
-		<-time.NewTimer(time.Minute).C
+		swg.Wait()
+		rm.Unlock()
 	}
 }
 

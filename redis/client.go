@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/charlesbases/library/logger"
 	"github.com/charlesbases/library/once"
-	"github.com/charlesbases/library/sonyflake"
 
 	"github.com/charlesbases/library"
 )
@@ -26,14 +26,6 @@ var ErrRedisNotReady = errors.New("redis is not ready")
 var (
 	// lockPrefixKey redis 分布式锁的 key 前缀
 	lockPrefixKey = KeyPrefix("lock_")
-	// delSuffixKey .
-	delSuffixKey = func(key keyword) keyword {
-		var builder strings.Builder
-		builder.WriteString(string(key))
-		builder.WriteString("_d")
-		builder.WriteString(sonyflake.NextID().String())
-		return keyword(builder.String())
-	}
 )
 
 type keyword string
@@ -62,13 +54,11 @@ var KeySuffix = func(suffix string) func(key string) keyword {
 
 // Mutex redis 分布式锁
 type Mutex struct {
-	*rkv
 	key  keyword
-	err  error
 	opts *MutexOptions
 
-	tk *time.Ticker // 尝试获取锁的时间间隔
-	tm *time.Timer  // 超时后自动删除
+	err    error
+	locked bool
 }
 
 // Err .
@@ -78,25 +68,32 @@ func (m *Mutex) Err() error {
 
 // Lock .
 func (m *Mutex) Lock() {
+	t := time.NewTicker(m.opts.Interval)
+
 	for {
 		select {
-		case <-m.tk.C:
-			ok, _ := m.client.SetNX(m.opts.Context, string(m.key), m.opts.Mark, m.opts.TTL).Result()
+		case <-t.C:
+			ok, _ := r.client.SetNX(m.opts.Context, string(m.key), r.id, m.opts.TTL).Result()
 			if ok {
+				m.locked = true
 				logger.DebugfWithContext(m.opts.Context, `[redis](%s) locked %v.`, m.key, m.opts.TTL)
 				return
 			}
-		case <-m.tm.C:
-			m.Unlock()
 		}
 	}
 }
 
 // Unlock .
 func (m *Mutex) Unlock() {
-	logger.DebugfWithContext(m.opts.Context, `[redis](%s) unlocked.`, m.key)
+	if !m.locked {
+		logger.ErrorfWithContext(m.opts.Context, `[redis](%s) unlocked failed. unlock of unlocked mutex`, m.key)
+		return
+	}
 
-	m.Del(m.key, func(o *DelOptions) { o.Context = m.opts.Context })
+	m.locked = false
+
+	logger.DebugfWithContext(m.opts.Context, `[redis](%s) unlocked.`, m.key)
+	r.Del(m.key, func(o *DelOptions) { o.Context = m.opts.Context })
 }
 
 // r default client
@@ -214,10 +211,10 @@ func (r *rkv) Del(key keyword, opts ...func(o *DelOptions)) *StatusOutput {
 	// 使用 redis.RenameNX() 后设置过期时间的方式进行平滑删除
 	// 相较于 redis.Del()，定时删除可以在一定程度上分摊删除操作的 CPU 负载
 	_, output.err = r.client.TxPipelined(dopts.Context, func(pipe redis.Pipeliner) error {
-		newkey := delSuffixKey(key)
-		pipe.RenameNX(dopts.Context, string(key), string(newkey))
+		newkey := uuid.NewString()
+		pipe.RenameNX(dopts.Context, string(key), newkey)
 		// 将 key 的过期时间(删除时间)设为 0-3s, 防止集中删除
-		pipe.PExpire(dopts.Context, string(newkey), time.Duration(rand.Intn(3000))*time.Millisecond)
+		pipe.PExpire(dopts.Context, newkey, time.Duration(rand.Intn(3000))*time.Millisecond)
 		return nil
 	})
 
@@ -255,13 +252,9 @@ func (r *rkv) Mutex(key keyword, opts ...func(o *MutexOptions)) *Mutex {
 		return &Mutex{err: ErrRedisNotReady}
 	}
 
-	var mopts = mutexoptions(opts...)
 	return &Mutex{
-		rkv:  r,
 		key:  lockPrefixKey(string(key)),
-		opts: mopts,
-		tk:   time.NewTicker(mopts.Heartbeat),
-		tm:   time.NewTimer(mopts.TTL),
+		opts: mutexoptions(opts...),
 	}
 }
 

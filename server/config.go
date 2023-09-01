@@ -50,8 +50,6 @@ type spec struct {
 	Watchdog autogc `yaml:"watchdog"`
 	// JWT jwt
 	JWT webtoken `yaml:"jwt"`
-	// Env env for server
-	Env []*envar `yaml:"env"`
 	// Logging logging
 	Logging logging `yaml:"logging"`
 	// Metrics metrics
@@ -100,12 +98,6 @@ type webtoken struct {
 	Expire int `yaml:"expire"`
 	// Interceptor jwt 拦截器
 	Interceptor *jwt.Interceptor `yaml:"intercept"`
-}
-
-// envar .
-type envar struct {
-	Name  string `yaml:"name"`
-	Value string `yaml:"value"`
 }
 
 // plugins .
@@ -390,20 +382,6 @@ func (c *configuration) watchdog() *lifecycle.Hook {
 	return nil
 }
 
-// envar .
-func (c *configuration) envar() error {
-	for _, env := range c.Spec.Env {
-		if regexp.Environment.MatchString(env.Name) {
-			if err := os.Setenv(env.Name, env.Value); err != nil {
-				return err
-			}
-		} else {
-			return fmt.Errorf(`unsupported env name of "%s"`, c.Name)
-		}
-	}
-	return nil
-}
-
 // serverid .
 func (c *configuration) serverid() string {
 	switch model {
@@ -438,11 +416,6 @@ func (c *configuration) server() *Server {
 
 	if !regexp.ServerName.MatchString(srv.name) {
 		logger.Fatalf("the server name of '%s' is not allowed, must match regular of `%s`.", srv.name, regexp.ServerName.String())
-	}
-
-	// parse env
-	if err := c.envar(); err != nil {
-		logger.Fatal()
 	}
 
 	// gin.Engine

@@ -11,9 +11,6 @@ spec:
   websocket:
     enabled: false
     enSubscription: true
-  env:
-  - name: "ENV"
-    value: "dev"
   jwt:
     enabled: true
     secret: 'app'

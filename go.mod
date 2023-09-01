@@ -15,6 +15,7 @@ require (
 	github.com/prometheus/client_golang v1.16.0
 	github.com/raulk/go-watchdog v1.3.0
 	github.com/redis/go-redis/v9 v9.0.5
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/sony/sonyflake v1.1.0
 	google.golang.org/protobuf v1.30.0
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df

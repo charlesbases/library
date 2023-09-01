@@ -31,5 +31,6 @@ func Test(t *testing.T) {
 }
 
 func TestNextID(t *testing.T) {
+	fmt.Println(uuid.New().ID())
 	fmt.Println(NextID())
 }

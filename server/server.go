@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"os"
 
 	"github.com/charlesbases/logger"
@@ -37,7 +36,6 @@ type Server struct {
 	port string
 	data interface{}
 
-	ctx       context.Context
 	lifecycle *lifecycle.Lifecycle
 
 	engine  *gin.Engine
@@ -112,7 +110,7 @@ func Run(fn func(srv *Server)) {
 	fn(srv)
 
 	// on start
-	if err := srv.lifecycle.Start(srv.ctx); err != nil {
+	if err := srv.lifecycle.Start(); err != nil {
 		srv.stop()
 	}
 
@@ -132,7 +130,7 @@ func Run(fn func(srv *Server)) {
 
 // stop .
 func (srv *Server) stop() {
-	srv.lifecycle.Stop(srv.ctx)
+	srv.lifecycle.Stop()
 	logger.Flush()
 
 	os.Exit(1)

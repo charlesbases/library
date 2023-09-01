@@ -19,6 +19,29 @@ type Lifecycle struct {
 	hooks []*Hook
 }
 
+// options .
+type options struct {
+	ctx context.Context
+}
+
+type option func(o *options)
+
+// Context .
+func Context(ctx context.Context) option {
+	return func(o *options) {
+		o.ctx = ctx
+	}
+}
+
+// opts .
+func (lf *Lifecycle) opts(opts ...option) *options {
+	var o = &options{ctx: context.Background()}
+	for _, opt := range opts {
+		opt(o)
+	}
+	return o
+}
+
 // Append .
 func (lf *Lifecycle) Append(hooks ...*Hook) {
 	if len(lf.hooks) != 0 {
@@ -29,10 +52,12 @@ func (lf *Lifecycle) Append(hooks ...*Hook) {
 }
 
 // Start .
-func (lf *Lifecycle) Start(ctx context.Context) error {
+func (lf *Lifecycle) Start(opts ...option) error {
+	var opt = lf.opts(opts...)
+
 	for _, hook := range lf.hooks {
 		if hook.OnStart != nil {
-			if err := hook.OnStart(ctx); err != nil {
+			if err := hook.OnStart(opt.ctx); err != nil {
 				logger.Errorf("[%s] start failed: %s", hook.Name, err.Error())
 				return err
 			}
@@ -42,10 +67,12 @@ func (lf *Lifecycle) Start(ctx context.Context) error {
 }
 
 // Stop .
-func (lf *Lifecycle) Stop(ctx context.Context) error {
+func (lf *Lifecycle) Stop(opts ...option) error {
+	var opt = lf.opts(opts...)
+
 	for _, hook := range lf.hooks {
 		if hook.OnStop != nil {
-			if err := hook.OnStop(ctx); err != nil {
+			if err := hook.OnStop(opt.ctx); err != nil {
 				logger.Errorf("[%s] stop failed: %s", hook.Name, err.Error())
 				return err
 			}

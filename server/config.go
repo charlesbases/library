@@ -428,11 +428,8 @@ func (c *configuration) serverid() string {
 
 // server .
 func (c *configuration) server() *Server {
-	ctx := context.Background()
-
 	srv := &Server{
 		id:        c.serverid(),
-		ctx:       ctx,
 		name:      c.Name,
 		port:      c.Port,
 		data:      c.Data,

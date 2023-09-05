@@ -7,8 +7,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/charlesbases/library/framework/gin-gonic/webserver"
 	"github.com/charlesbases/library/jwtauth"
-	"github.com/charlesbases/library/server/webserver"
 )
 
 const defaultTokenHeader = "Authorization"

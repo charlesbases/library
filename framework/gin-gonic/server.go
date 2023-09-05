@@ -1,4 +1,4 @@
-package server
+package gin_gonic
 
 import (
 	"os"

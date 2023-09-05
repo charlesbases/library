@@ -1,4 +1,4 @@
-package server
+package gin_gonic
 
 import (
 	"context"
@@ -20,13 +20,13 @@ import (
 	"github.com/charlesbases/library/database"
 	"github.com/charlesbases/library/database/orm"
 	"github.com/charlesbases/library/database/orm/driver"
+	"github.com/charlesbases/library/framework/gin-gonic/middlewares"
+	"github.com/charlesbases/library/framework/gin-gonic/middlewares/jwt"
+	"github.com/charlesbases/library/framework/gin-gonic/websocket"
 	"github.com/charlesbases/library/jwtauth"
 	"github.com/charlesbases/library/lifecycle"
 	"github.com/charlesbases/library/redis"
 	"github.com/charlesbases/library/regexp"
-	"github.com/charlesbases/library/server/middlewares"
-	"github.com/charlesbases/library/server/middlewares/jwt"
-	"github.com/charlesbases/library/server/websocket"
 	"github.com/charlesbases/library/storage"
 	"github.com/charlesbases/library/storage/s3"
 	"github.com/charlesbases/library/watchdog"

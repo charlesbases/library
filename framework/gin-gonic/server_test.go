@@ -1,12 +1,12 @@
-package server
+package gin_gonic
 
 import (
 	"testing"
 	"time"
 
 	"github.com/charlesbases/library"
-	"github.com/charlesbases/library/server/hfwctx"
-	"github.com/charlesbases/library/server/websocket"
+	"github.com/charlesbases/library/framework/gin-gonic/hfwctx"
+	"github.com/charlesbases/library/framework/gin-gonic/websocket"
 )
 
 func TestRun(t *testing.T) {

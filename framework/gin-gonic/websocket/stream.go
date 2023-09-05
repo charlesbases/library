@@ -6,8 +6,8 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/charlesbases/library/server/hfwctx"
-	"github.com/charlesbases/library/server/webserver"
+	"github.com/charlesbases/library/framework/gin-gonic/hfwctx"
+	"github.com/charlesbases/library/framework/gin-gonic/webserver"
 )
 
 const (

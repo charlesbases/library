@@ -8,7 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/charlesbases/library/server/hfwctx"
+	"github.com/charlesbases/library/framework/gin-gonic/hfwctx"
 )
 
 var (

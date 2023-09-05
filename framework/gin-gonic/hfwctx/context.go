@@ -11,7 +11,7 @@ import (
 
 	"github.com/charlesbases/library"
 	"github.com/charlesbases/library/content"
-	"github.com/charlesbases/library/server/webserver"
+	"github.com/charlesbases/library/framework/gin-gonic/webserver"
 )
 
 // Context .

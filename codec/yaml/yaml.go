@@ -15,7 +15,7 @@ const defaultConfigurationFilePath = "config.yaml"
 // Marshaler default codec.Marshaler
 var Marshaler = NewMarshaler()
 
-type c struct {
+type yamlMarshaler struct {
 	*codec.DecodeOptions
 	*codec.MarshalOptions
 }
@@ -27,7 +27,7 @@ func NewMarshaler(opts ...func(o *codec.MarshalOptions)) codec.Marshaler {
 		opt(options)
 	}
 
-	return &c{MarshalOptions: options}
+	return &yamlMarshaler{MarshalOptions: options}
 }
 
 // NewDecoder .
@@ -36,10 +36,10 @@ func NewDecoder(opts ...func(o *codec.DecodeOptions)) codec.Decoder {
 	for _, opt := range opts {
 		opt(options)
 	}
-	return &c{DecodeOptions: options}
+	return &yamlMarshaler{DecodeOptions: options}
 }
 
-func (c *c) Decode(v interface{}) error {
+func (c *yamlMarshaler) Decode(v interface{}) error {
 	if c.Reader != nil {
 		return yaml.NewDecoder(c.Reader).Decode(v)
 	} else {
@@ -54,18 +54,18 @@ func (c *c) Decode(v interface{}) error {
 	}
 }
 
-func (c *c) Marshal(v interface{}) ([]byte, error) {
+func (c *yamlMarshaler) Marshal(v interface{}) ([]byte, error) {
 	return yaml.Marshal(v)
 }
 
-func (c *c) Unmarshal(data []byte, v interface{}) error {
+func (c *yamlMarshaler) Unmarshal(data []byte, v interface{}) error {
 	return yaml.Unmarshal(data, v)
 }
 
-func (c *c) RawMessage(data []byte) string {
+func (c *yamlMarshaler) RawMessage(data []byte) string {
 	return string(data)
 }
 
-func (c *c) ContentType() content.Type {
+func (c *yamlMarshaler) ContentType() content.Type {
 	return content.Yaml
 }

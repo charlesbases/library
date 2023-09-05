@@ -16,7 +16,7 @@ const mess = "[ProtoMessage]"
 // Marshaler default codec.Marshaler
 var Marshaler = NewMarshaler()
 
-type c struct {
+type protoMarshaler struct {
 	*codec.MarshalOptions
 }
 
@@ -27,10 +27,10 @@ func NewMarshaler(opts ...func(o *codec.MarshalOptions)) codec.Marshaler {
 		opt(options)
 	}
 
-	return &c{MarshalOptions: options}
+	return &protoMarshaler{MarshalOptions: options}
 }
 
-func (*c) Marshal(v interface{}) ([]byte, error) {
+func (*protoMarshaler) Marshal(v interface{}) ([]byte, error) {
 	if pv, ok := v.(proto.Message); ok {
 		return proto.Marshal(pv)
 	} else {
@@ -38,14 +38,14 @@ func (*c) Marshal(v interface{}) ([]byte, error) {
 	}
 }
 
-func (*c) Unmarshal(data []byte, v interface{}) error {
+func (*protoMarshaler) Unmarshal(data []byte, v interface{}) error {
 	return proto.Unmarshal(data, v.(proto.Message))
 }
 
-func (c *c) RawMessage(data []byte) string {
+func (c *protoMarshaler) RawMessage(data []byte) string {
 	return mess
 }
 
-func (c *c) ContentType() content.Type {
+func (c *protoMarshaler) ContentType() content.Type {
 	return content.Proto
 }

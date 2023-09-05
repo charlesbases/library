@@ -10,7 +10,7 @@ import (
 // Marshaler default codec.Marshaler
 var Marshaler = NewMarshaler()
 
-type c struct {
+type jsonMarshaler struct {
 	*codec.MarshalOptions
 }
 
@@ -21,24 +21,24 @@ func NewMarshaler(opts ...func(o *codec.MarshalOptions)) codec.Marshaler {
 		opt(options)
 	}
 
-	return &c{MarshalOptions: options}
+	return &jsonMarshaler{MarshalOptions: options}
 }
 
-func (c *c) Marshal(v interface{}) ([]byte, error) {
+func (c *jsonMarshaler) Marshal(v interface{}) ([]byte, error) {
 	if c.Indent {
 		return json.MarshalIndent(v, "", "  ")
 	}
 	return json.Marshal(v)
 }
 
-func (c *c) Unmarshal(d []byte, v interface{}) error {
+func (c *jsonMarshaler) Unmarshal(d []byte, v interface{}) error {
 	return json.Unmarshal(d, v)
 }
 
-func (c *c) RawMessage(data []byte) string {
+func (c *jsonMarshaler) RawMessage(data []byte) string {
 	return string(data)
 }
 
-func (c *c) ContentType() content.Type {
+func (c *jsonMarshaler) ContentType() content.Type {
 	return content.Json
 }

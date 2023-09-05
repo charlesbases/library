@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+option go_package = ".;pb";
+
+package pb;
+
+import "google/protobuf/plugin/http.proto";
+
+// 用户服务
+service User {
+  // 用户注册
+  rpc Create (UserInfo) returns (UserInfo) {
+    option (google.protobuf.plugin.http) = {
+      post: "/api/v1/user"
+    };
+  };
+
+  // 用户登录
+  rpc Login (GetRequest) returns (UserInfo) {
+    option (google.protobuf.plugin.http) = {
+      get: "/api/v1/user"
+    };
+  };
+}
+
+// 用户信息
+message UserInfo {
+  // 用户 id
+  int64 id = 1;
+  // 用户名称
+  string name =2;
+  // 用户邮箱
+  string email = 3;
+  // 用户状态
+  bool status = 4;
+}
+
+message GetRequest {
+  int64 id = 1;
+}

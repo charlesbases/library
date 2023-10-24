@@ -6,6 +6,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/charlesbases/logger"
 	"github.com/gin-gonic/gin"
 
 	"github.com/charlesbases/library/framework/gin-gonic/hfwctx"
@@ -13,7 +14,7 @@ import (
 
 var (
 	defaultDateFormat = "2006-01-02 15:04:05.000"
-	defaultFormat     = "{{.StartTime}} | {{.Status}} | {{.Duration}} | {{.Hostname}} | {{.Method}} {{.Path}}"
+	defaultFormat     = "{{.StartTime}} | {{.Status}} | {{.Duration}} | {{.Hostname}} | {{.Method}} {{.Key}}"
 	defaulttemplate   = template.Must(template.New("negroni_parser").Parse(defaultFormat))
 )
 
@@ -27,6 +28,7 @@ type entry struct {
 	Request   *http.Request
 }
 
+// Negroni .
 var Negroni = &negroni{ignores: make([]string, 0)}
 
 // negroni .
@@ -76,7 +78,7 @@ func (n *negroni) HandlerFunc() gin.HandlerFunc {
 				Request:   ctx.Request,
 			})
 
-			c.Info(buff.String())
+			logger.WithContext(c).Info(buff.String())
 		} else {
 			ctx.Next()
 		}

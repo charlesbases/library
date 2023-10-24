@@ -26,6 +26,7 @@ var (
 	}
 )
 
+// RedisClient redis client
 var RedisClient Cmdable = func(o *Options) (redis.Cmdable, func() error) {
 	client := redis.NewClient(&redis.Options{
 		Addr:         o.Addrs[0],
@@ -45,6 +46,7 @@ var RedisClient Cmdable = func(o *Options) (redis.Cmdable, func() error) {
 	return client, client.Close
 }
 
+// RedisCluster redis cluster
 var RedisCluster Cmdable = func(o *Options) (redis.Cmdable, func() error) {
 	cluster := redis.NewClusterClient(&redis.ClusterOptions{
 		Addrs:        o.Addrs,
@@ -64,6 +66,7 @@ var RedisCluster Cmdable = func(o *Options) (redis.Cmdable, func() error) {
 	return cluster, cluster.Close
 }
 
+// Cmdable redis.Cmdable
 type Cmdable func(o *Options) (redis.Cmdable, func() error)
 
 // Options .

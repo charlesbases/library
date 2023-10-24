@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/charlesbases/logger"
+
 	"github.com/charlesbases/library"
 	"github.com/charlesbases/library/framework/gin-gonic/hfwctx"
 	"github.com/charlesbases/library/framework/gin-gonic/websocket"
@@ -65,7 +67,7 @@ func TestRun(t *testing.T) {
 
 // websockerAction .
 func websockerAction(c *hfwctx.Context, session *websocket.Session) {
-	c.Debug(time.Now())
+	logger.WithContext(c).Debug(time.Now())
 
 	for {
 		select {

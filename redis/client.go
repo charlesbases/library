@@ -2,23 +2,19 @@ package redis
 
 import (
 	"context"
-	"errors"
 	"math/rand"
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/charlesbases/library/logger"
-	"github.com/charlesbases/library/once"
+	"github.com/charlesbases/logger"
 
 	"github.com/charlesbases/library"
 )
-
-func init() {
-	once.RandSeed(time.Now().UnixNano())
-}
 
 // ErrRedisNotReady redis is not ready
 var ErrRedisNotReady = errors.New("redis is not ready")
@@ -30,10 +26,12 @@ var (
 
 type keyword string
 
+// Key keyword of key
 var Key = func(key string) keyword {
 	return keyword(key)
 }
 
+// KeyPrefix keyword of prefix
 var KeyPrefix = func(prefix string) func(key string) keyword {
 	return func(key string) keyword {
 		var builder strings.Builder
@@ -43,6 +41,7 @@ var KeyPrefix = func(prefix string) func(key string) keyword {
 	}
 }
 
+// KeySuffix keyword of suffix
 var KeySuffix = func(suffix string) func(key string) keyword {
 	return func(key string) keyword {
 		var builder strings.Builder
@@ -76,7 +75,7 @@ func (m *Mutex) Lock() {
 			ok, _ := r.client.SetNX(m.opts.Context, string(m.key), r.id, m.opts.TTL).Result()
 			if ok {
 				m.locked = true
-				logger.DebugfWithContext(m.opts.Context, `[redis](%s) locked %v.`, m.key, m.opts.TTL)
+				logger.WithContext(m.opts.Context).Debugf(`[redis](%s): locked: %v.`, m.key, m.opts.TTL)
 				return
 			}
 		}
@@ -86,13 +85,13 @@ func (m *Mutex) Lock() {
 // Unlock .
 func (m *Mutex) Unlock() {
 	if !m.locked {
-		logger.ErrorfWithContext(m.opts.Context, `[redis](%s) unlocked failed. unlock of unlocked mutex`, m.key)
+		logger.WithContext(m.opts.Context).Errorf(`[redis](%s): unlocked: unlock of unlocked mutex`, m.key)
 		return
 	}
 
 	m.locked = false
 
-	logger.DebugfWithContext(m.opts.Context, `[redis](%s) unlocked.`, m.key)
+	logger.WithContext(m.opts.Context).Debugf(`[redis](%s): unlocked`, m.key)
 	r.Del(m.key, func(o *DelOptions) { o.Context = m.opts.Context })
 }
 
@@ -138,7 +137,7 @@ func (r *rkv) Set(key keyword, val interface{}, opts ...func(o *SetOptions)) *St
 
 	output := &StatusOutput{baseOutput: baseOutput{ctx: sopts.Context, key: string(key)}}
 	if !r.isReady() {
-		output.err = ErrRedisNotReady
+		output.err = errors.Errorf("[redis](%s): set: %v", key, ErrRedisNotReady)
 		return output
 	}
 
@@ -148,14 +147,12 @@ func (r *rkv) Set(key keyword, val interface{}, opts ...func(o *SetOptions)) *St
 
 	data, err := sopts.Marshaler.Marshal(val)
 	if err != nil {
-		logger.ErrorfWithContext(sopts.Context, `[redis](%s) set failed. %s`, key, err.Error())
-		output.err = err
+		output.err = errors.Errorf("[redis](%s): set: %v", key, err)
 		return output
 	}
 
 	if err := r.client.Set(sopts.Context, string(key), data, sopts.TTL).Err(); err != nil {
-		logger.ErrorfWithContext(sopts.Context, `[redis](%s) set failed. %s`, key, err.Error())
-		output.err = err
+		output.err = errors.Errorf("[redis](%s): set: %v", key, err)
 		return output
 	}
 
@@ -168,21 +165,19 @@ func (r *rkv) Get(key keyword, opts ...func(o *GetOptions)) *BytesOutput {
 
 	output := &BytesOutput{marshaler: gopts.Marshaler, baseOutput: baseOutput{ctx: gopts.Context, key: string(key)}}
 	if !r.isReady() {
-		output.err = ErrRedisNotReady
+		output.err = errors.Errorf("[redis](%s): get: %v", key, ErrRedisNotReady)
 		return output
 	}
 
 	data, err := r.client.Get(gopts.Context, string(key)).Bytes()
 	if err != nil {
-		logger.ErrorfWithContext(gopts.Context, `[redis](%s) get failed. %s`, key, err.Error())
-		output.err = err
+		output.err = errors.Errorf("[redis](%s): get: %v", key, err)
 		return output
 	}
 
 	ttl, err := r.client.TTL(gopts.Context, string(key)).Result()
 	if err != nil {
-		logger.ErrorfWithContext(gopts.Context, `[redis](%s) get.ttl failed. %s`, key, err.Error())
-		output.err = err
+		output.err = errors.Errorf("[redis](%s): get.ttl: %v", key, err)
 		return output
 	}
 
@@ -198,30 +193,29 @@ func (r *rkv) Del(key keyword, opts ...func(o *DelOptions)) *StatusOutput {
 
 	output := &StatusOutput{baseOutput: baseOutput{ctx: dopts.Context, key: string(key)}}
 	if !r.isReady() {
-		output.err = ErrRedisNotReady
+		output.err = errors.Errorf("[redis](%s): del: %v", key, ErrRedisNotReady)
 		return output
 	}
 
 	// 调用 redis.Del() 进行删除
 	// 注意：redis 的删除策略为惰性删除，并不确保立即删除，并且删除键值对会占用 CPU 资源，尤其是大量删除时
 	// if err := r.client.Del(dopts.Context, string(key)).Err(); err != nil {
-	// 	logger.ErrorfWithContext(dopts.Context, `[redis](%s) del failed. %s`, key, err.Error())
+	// 	output.err = errors.Errorf("[redis](%s): del: %v", key, err)
+	// 	return output
 	// }
 
 	// 使用 redis.RenameNX() 后设置过期时间的方式进行平滑删除
 	// 相较于 redis.Del()，定时删除可以在一定程度上分摊删除操作的 CPU 负载
-	_, output.err = r.client.TxPipelined(dopts.Context, func(pipe redis.Pipeliner) error {
+	_, err := r.client.TxPipelined(dopts.Context, func(pipe redis.Pipeliner) error {
 		newkey := uuid.NewString()
-		pipe.RenameNX(dopts.Context, string(key), newkey)
+		if err := pipe.RenameNX(dopts.Context, string(key), newkey).Err(); err != nil {
+			return err
+		}
 		// 将 key 的过期时间(删除时间)设为 0-3s, 防止集中删除
-		pipe.PExpire(dopts.Context, newkey, time.Duration(rand.Intn(3000))*time.Millisecond)
-		return nil
+		return pipe.PExpire(dopts.Context, newkey, time.Duration(rand.Intn(3000))*time.Millisecond).Err()
 	})
 
-	if output.err != nil {
-		logger.ErrorfWithContext(dopts.Context, `[redis](%s) del failed. %s`, key, output.err.Error())
-	}
-
+	output.err = errors.Wrapf(err, "[redis](%s): del", key)
 	return output
 }
 
@@ -231,7 +225,7 @@ func (r *rkv) Expire(key keyword, opts ...func(o *ExpireOptions)) *StatusOutput 
 
 	output := &StatusOutput{baseOutput: baseOutput{ctx: eopts.Context, key: string(key)}}
 	if !r.isReady() {
-		output.err = ErrRedisNotReady
+		output.err = errors.Errorf("[redis](%s): expire: %v", key, ErrRedisNotReady)
 		return output
 	}
 
@@ -243,13 +237,14 @@ func (r *rkv) Expire(key keyword, opts ...func(o *ExpireOptions)) *StatusOutput 
 		output.err = r.client.PExpire(eopts.Context, string(key), eopts.TTL).Err()
 	}
 
+	output.err = errors.Wrapf(output.err, "[redis](%s): expire", key)
 	return output
 }
 
 // Mutex .
 func (r *rkv) Mutex(key keyword, opts ...func(o *MutexOptions)) *Mutex {
 	if !r.isReady() {
-		return &Mutex{err: ErrRedisNotReady}
+		return &Mutex{err: errors.Errorf("[redis](%s): mutex: %v", key, ErrRedisNotReady)}
 	}
 
 	return &Mutex{
@@ -264,7 +259,7 @@ func (r *rkv) IsExists(key string, opts ...func(o *GetOptions)) *BoolOutput {
 
 	output := &BoolOutput{baseOutput: baseOutput{ctx: gopts.Context, key: string(key)}}
 	if !r.isReady() {
-		output.err = ErrRedisNotReady
+		output.err = errors.Errorf("[redis](%s): exists: %v", key, ErrRedisNotReady)
 		return output
 	}
 
@@ -274,6 +269,7 @@ func (r *rkv) IsExists(key string, opts ...func(o *GetOptions)) *BoolOutput {
 	return output
 }
 
+// Close .
 func (r *rkv) Close() error {
 	if r.closing != nil {
 		return r.closing()
@@ -284,9 +280,8 @@ func (r *rkv) Close() error {
 // ping .
 func (r *rkv) ping() error {
 	if err := r.client.Ping(r.opts.Context).Err(); err != nil {
-		logger.ErrorfWithContext(r.opts.Context, `[redis] ping failed. %s`, err.Error())
 		r.active = false
-		return err
+		return errors.Wrapf(err, "[redis]: ping")
 	}
 	r.active = true
 	return nil
@@ -313,13 +308,13 @@ func NewClient(id string, opts ...func(o *Options)) (*rkv, error) {
 		opt(options)
 	}
 
-	client, close := options.Cmdable(options)
+	client, closing := options.Cmdable(options)
 
 	r := &rkv{
 		id:      id,
 		opts:    options,
 		client:  client,
-		closing: close,
+		closing: closing,
 	}
 
 	if err := r.ping(); err != nil {

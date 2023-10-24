@@ -1,17 +1,18 @@
 package kafka
 
 import (
-	"errors"
-	"fmt"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/IBM/sarama"
 	"github.com/google/uuid"
 
+	"github.com/charlesbases/logger"
+
 	"github.com/charlesbases/library"
 	"github.com/charlesbases/library/broker"
 	"github.com/charlesbases/library/content"
-	"github.com/charlesbases/library/logger"
 )
 
 // consumerGroup .
@@ -22,14 +23,17 @@ type consumerGroup struct {
 	h broker.Handler
 }
 
+// Setup .
 func (c *consumerGroup) Setup(session sarama.ConsumerGroupSession) error {
 	return nil
 }
 
+// Cleanup .
 func (c *consumerGroup) Cleanup(session sarama.ConsumerGroupSession) error {
 	return nil
 }
 
+// ConsumeClaim .
 func (c *consumerGroup) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for {
 		select {
@@ -42,11 +46,11 @@ func (c *consumerGroup) ConsumeClaim(session sarama.ConsumerGroupSession, claim 
 
 			session.MarkMessage(message, "")
 
-			logger.Debugf(`[kafka] consume["%s"] << %s`, message.Topic, c.opts.Codec.RawMessage(message.Value))
+			logger.Debugf(`[kafka]: consume["%s"]: %s`, message.Topic, c.opts.Codec.RawMessage(message.Value))
 
 			go func() {
 				if err := c.h(broker.NewEvent(message.Topic, message.Topic, message.Value, c.opts.Codec)); err != nil {
-					logger.Errorf(`[kafka] consume["%s"] failed: %s`, message.Topic, err.Error())
+					logger.Errorf(`[kafka]: consume["%s"]: %v`, message.Topic, err)
 				}
 			}()
 		}
@@ -76,13 +80,13 @@ func (c *client) connect() (err error) {
 	// client
 	c.client, err = sarama.NewClient([]string{c.opts.Address}, c.conf)
 	if err != nil {
-		return fmt.Errorf(`connect to "%s" failed. %v`, c.opts.Address, err)
+		return err
 	}
 
 	// producer
 	c.producer, err = sarama.NewAsyncProducerFromClient(c.client)
 	if err != nil {
-		return fmt.Errorf(`connect to "%s" failed. NewProducer error: %v`, c.opts.Address, err)
+		return err
 	}
 
 	c.actived = true
@@ -100,15 +104,16 @@ func (c *client) daemon() {
 			return
 		case err, ok := <-c.producer.Errors():
 			if ok {
-				logger.Errorf(`[kafka] produce["%s"] failed. %v`, err.Msg.Topic, err.Err)
+				logger.Errorf(`[kafka]: produce["%s"]: %v`, err.Msg.Topic, err.Err)
 			}
 		}
 	}
 }
 
-func (c *client) Publish(topic string, v interface{}, opts ...func(o *broker.PublishOptions)) error {
+// piblish .
+func (c *client) publish(topic string, v interface{}, opts ...func(o *broker.PublishOptions)) error {
 	if !c.actived {
-		return fmt.Errorf(`[kafka] publish["%s"] failed. connection not ready.`, topic)
+		return broker.ErrNotReady
 	}
 
 	if err := broker.CheckSubject(topic); err != nil {
@@ -130,11 +135,10 @@ func (c *client) Publish(topic string, v interface{}, opts ...func(o *broker.Pub
 	case content.Proto:
 		data, err = o.Codec.Marshal(v)
 	default:
-		err = fmt.Errorf("unsupported content-type of %s.", o.Codec.ContentType().String())
+		err = errors.Errorf("unsupported content-type of %s.", o.Codec.ContentType().String())
 	}
 
 	if err != nil {
-		logger.ErrorfWithContext(o.Context, `[kafka] publish["%s"] failed. Marshal error: %s`, topic, err.Error())
 		return err
 	}
 
@@ -143,23 +147,26 @@ func (c *client) Publish(topic string, v interface{}, opts ...func(o *broker.Pub
 		Value: sarama.ByteEncoder(data),
 	}
 
-	logger.DebugfWithContext(o.Context, `[kafka] publish["%s"] >> %s`, topic, o.Codec.RawMessage(data))
+	logger.CallerSkip(o.CallerSkip+1).WithContext(o.Context).Debugf(`[kafka]: publish["%s"]: %s`, topic, o.Codec.RawMessage(data))
 	return nil
 }
 
-func (c *client) Subscribe(topic string, handler broker.Handler, opts ...func(o *broker.SubscribeOptions)) error {
+// Publish .
+func (c *client) Publish(topic string, v interface{}, opts ...func(o *broker.PublishOptions)) error {
+	return errors.Wrapf(c.publish(topic, v, opts...), `[kafka]: publish["%s"]`, topic)
+}
+
+// subscribe .
+func (c *client) subscribe(topic string, handler broker.Handler, opts ...func(o *broker.SubscribeOptions)) error {
 	if !c.actived {
-		err := errors.New("connection not ready.")
-		logger.Errorf(`[kafka] subscribe["%s"] failed. %s`, topic, err.Error())
-		return err
+		return broker.ErrNotReady
 	}
 
 	if err := broker.CheckSubject(topic); err != nil {
-		logger.Errorf(`[kafka] subscribe["%s"] failed. %s`, err.Error())
 		return err
 	}
 
-	logger.Debugf(`[kafka] subscribe["%s"]`, topic)
+	logger.Debugf(`[kafka]: subscribe["%s"]`, topic)
 
 	var o = broker.ParseSubscribeOptions(opts...)
 
@@ -168,10 +175,9 @@ func (c *client) Subscribe(topic string, handler broker.Handler, opts ...func(o 
 
 		consumer, err := sarama.NewConsumerGroupFromClient(o.ConsumerModel(c.id, topic), c.client)
 		if err != nil {
-			logger.Errorf(`[kafka] subscribe["%s"] failed. %s.`, err.Error())
+			logger.Errorf(`[kafka]: subscribe["%s"]: %v`, err)
 			return
 		}
-		logger.Infof(`[kafka] subscribe["%s"]`, topic)
 
 		consumerGroupHandler := &consumerGroup{client: c, h: handler, opts: o}
 		for {
@@ -182,7 +188,7 @@ func (c *client) Subscribe(topic string, handler broker.Handler, opts ...func(o 
 				return
 			default:
 				if err != nil {
-					logger.Errorf(`[kafka] consume["%s"] failed. %s`, topic, err.Error())
+					logger.Errorf(`[kafka]: consume["%s"]: %v`, topic, err)
 				}
 				<-t.C
 			}
@@ -192,6 +198,12 @@ func (c *client) Subscribe(topic string, handler broker.Handler, opts ...func(o 
 	return nil
 }
 
+// Subscribe .
+func (c *client) Subscribe(topic string, handler broker.Handler, opts ...func(o *broker.SubscribeOptions)) error {
+	return errors.Wrapf(c.subscribe(topic, handler, opts...), `[kafka]: subscribe["%s"]`, topic)
+}
+
+// Close .
 func (c *client) Close() {
 	if c.actived {
 		c.actived = false
@@ -217,7 +229,6 @@ func NewClient(id string, opts ...func(o *broker.Options)) (broker.Client, error
 	c.conf.ClientID = c.id
 
 	c.conf.Consumer.Offsets.Initial = sarama.OffsetNewest
-	c.conf.Consumer.Group.Rebalance.Strategy = sarama.BalanceStrategyRange
 	c.conf.Consumer.Offsets.AutoCommit.Enable = true
 
 	c.conf.Producer.Return.Errors = true

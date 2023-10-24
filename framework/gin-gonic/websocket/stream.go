@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/charlesbases/logger"
 	"github.com/gorilla/websocket"
 
 	"github.com/charlesbases/library/framework/gin-gonic/hfwctx"
@@ -16,6 +17,7 @@ const (
 	defaultHeartbeat = time.Second * 30
 )
 
+// Method of ws
 type Method string
 
 const (
@@ -48,13 +50,13 @@ type stream struct {
 type (
 	// WebSocketRequest .
 	WebSocketRequest struct {
-		ID     sessionID        `json:"id" validate:"required"`
+		ID     hfwctx.ID        `json:"id" validate:"required"`
 		Method Method           `json:"method" validate:"required"`
 		Params *json.RawMessage `json:"params,omitempty"`
 	}
 	// WebSocketResponse .
 	WebSocketResponse struct {
-		ID      sessionID      `json:"id" validate:"required"`
+		ID      hfwctx.ID      `json:"id" validate:"required"`
 		Code    webserver.Code `json:"code,omitempty"`
 		Message string         `json:"message,omitempty"`
 		Method  Method         `json:"method,omitempty"`
@@ -87,13 +89,13 @@ func NewStream(opts ...func(o *Options)) func(c *hfwctx.Context) {
 		}
 
 		if err := s.opts.Auth(c); err != nil {
-			c.Error("websocket authorization failed. ", err)
-			c.ReturnError(webserver.StatusAccessDenied, err.Error())
+			logger.WithContext(c).Error("websocket authorization failed. ", err)
+			c.ReturnError(webserver.StatusAccessDenied, err)
 			return
 		}
 
 		if err := s.connect(c); err != nil {
-			c.Error("websocket connect failed. ", err)
+			logger.WithContext(c).Error("websocket connect failed. ", err)
 		}
 		return
 	}
@@ -118,16 +120,16 @@ func (stream *stream) newSession(c *hfwctx.Context, conn *websocket.Conn) *Sessi
 func (stream *stream) connect(c *hfwctx.Context) error {
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		c.Error("websocket upgrade error: ", err)
+		logger.WithContext(c).Error("websocket upgrade error: ", err)
 		return webserver.StatusBadRequest.WebError(err)
 	}
 	defer conn.Close()
 
-	session := stream.newSession(c, conn)
-	c.Debugf("[WebSocketID: %d] connected", session.id)
+	sess := stream.newSession(c, conn)
+	logger.WithContext(sess.ctx).Debugf("[WebSocketID: %s] connected", sess.id)
 
-	session.ping()
-	session.serve()
+	sess.ping()
+	sess.serve()
 	return nil
 }
 

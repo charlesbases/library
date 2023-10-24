@@ -9,12 +9,14 @@ import (
 	"github.com/charlesbases/library/lifecycle"
 )
 
+// Stop cron
 type Stop func() context.Context
 
 var background = func() context.Context {
 	return context.Background()
 }
 
+// CronCmd command of cron
 type CronCmd interface {
 	AddFunc(spec string, action func()) (cron.EntryID, error)
 }

@@ -27,7 +27,7 @@ spec:
       - '/prefix/*'
   plugins:
     redis:
-      enabled: true
+      enabled: false
       type: 'client'
       address:
       - '10.63.2.46:6379'
@@ -36,12 +36,12 @@ spec:
       timeout: 3
       maxRetries: 3
     broker:
-      enabled: true
+      enabled: false
       type: 'nats'
       address: 'nats'
       reconnectWait: 3
     storage:
-      enabled: true
+      enabled: false
       type: 's3'
       address: '10.64.21.34:32607'
       accessKey: 'AINhzLWnmdnD70Ve'

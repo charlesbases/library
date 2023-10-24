@@ -8,8 +8,7 @@ import (
 
 // Hook .
 type Hook struct {
-	Name string
-
+	Name    string
 	OnStart func(ctx context.Context) error
 	OnStop  func(ctx context.Context) error
 }
@@ -58,7 +57,7 @@ func (lf *Lifecycle) Start(opts ...option) error {
 	for _, hook := range lf.hooks {
 		if hook.OnStart != nil {
 			if err := hook.OnStart(opt.ctx); err != nil {
-				logger.Errorf("[%s] start failed: %s", hook.Name, err.Error())
+				logger.Errorf("[%s]: start: %v", hook.Name, err)
 				return err
 			}
 		}
@@ -73,7 +72,7 @@ func (lf *Lifecycle) Stop(opts ...option) error {
 	for _, hook := range lf.hooks {
 		if hook.OnStop != nil {
 			if err := hook.OnStop(opt.ctx); err != nil {
-				logger.Errorf("[%s] stop failed: %s", hook.Name, err.Error())
+				logger.Errorf("[%s]: stop: %v", hook.Name, err)
 				return err
 			}
 		}

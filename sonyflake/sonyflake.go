@@ -6,8 +6,6 @@ import (
 	"time"
 
 	"github.com/sony/sonyflake"
-
-	"github.com/charlesbases/library/once"
 )
 
 var sf *sonyflake.Sonyflake
@@ -18,14 +16,13 @@ var randMachineID = func() (uint16, error) {
 }
 
 func init() {
-	once.RandSeed(time.Now().UnixNano())
-
 	sf = sonyflake.NewSonyflake(sonyflake.Settings{
 		StartTime: time.Now(),
 		MachineID: randMachineID,
 	})
 }
 
+// ID id
 type ID uint64
 
 // String .

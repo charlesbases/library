@@ -2,18 +2,19 @@ package nats
 
 import (
 	"crypto/tls"
-	"errors"
-	"fmt"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
 
+	"github.com/charlesbases/logger"
+
 	"github.com/charlesbases/library"
 	"github.com/charlesbases/library/broker"
 	"github.com/charlesbases/library/content"
-	"github.com/charlesbases/library/logger"
 )
 
 // client .
@@ -36,12 +37,12 @@ func (c *client) connect() error {
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf(`connect to "%s" failed. %v`, c.opts.Address, err)
+		return err
 	}
 
 	js, err := conn.JetStream()
 	if err != nil {
-		return fmt.Errorf(`connect to "%s" failed. %v`, c.opts.Address, err)
+		return err
 	}
 
 	c.conn = conn
@@ -63,9 +64,10 @@ func (c *client) orCreateStream(v string) error {
 	return err
 }
 
-func (c *client) Publish(subject string, v interface{}, opts ...func(o *broker.PublishOptions)) error {
+// publish .
+func (c *client) publish(subject string, v interface{}, opts ...func(o *broker.PublishOptions)) error {
 	if !c.actived {
-		return fmt.Errorf(`[nats] publish["%s"] failed. connection not ready.`, subject)
+		return broker.ErrNotReady
 	}
 
 	if err := broker.CheckSubject(subject); err != nil {
@@ -76,7 +78,6 @@ func (c *client) Publish(subject string, v interface{}, opts ...func(o *broker.P
 
 	err := c.orCreateStream(subject)
 	if err != nil {
-		logger.ErrorfWithContext(o.Context, `[nats] publish["%s"] failed. %s`, subject, err.Error())
 		return err
 	}
 
@@ -92,11 +93,10 @@ func (c *client) Publish(subject string, v interface{}, opts ...func(o *broker.P
 	case content.Proto:
 		data, err = o.Codec.Marshal(v)
 	default:
-		err = fmt.Errorf("unsupported content-type of %v.", o.Codec.ContentType().String())
+		err = errors.Errorf("unsupported content-type of %v.", o.Codec.ContentType().String())
 	}
 
 	if err != nil {
-		logger.ErrorfWithContext(o.Context, `[nats] publish["%s"] failed. %s`, subject, err.Error())
 		return err
 	}
 
@@ -106,54 +106,59 @@ func (c *client) Publish(subject string, v interface{}, opts ...func(o *broker.P
 		Reply:   subject,
 		Data:    data,
 	}, nats.ExpectStream(subject)); err != nil {
-		logger.ErrorfWithContext(o.Context, `[nats] publish["%s"] failed. %s`, subject, err.Error())
+		return err
 	} else {
 		go func() {
 			select {
 			case <-ack.Ok():
-				logger.DebugfWithContext(o.Context, `[nats] publish["%s"] >> %s`, subject, o.Codec.RawMessage(data))
+				logger.WithContext(o.Context).Debugf(`[nats]: publish["%s"]: %s`, subject, o.Codec.RawMessage(data))
 			case err := <-ack.Err():
-				logger.ErrorfWithContext(o.Context, `[nats] publish["%s"] failed. %s`, subject, err.Error())
-			case <-time.NewTimer(5 * time.Second).C:
-				logger.ErrorfWithContext(o.Context, `[nats] publish["%s"] failed. publish timeout.`, subject)
+				logger.WithContext(o.Context).Errorf(`[nats]: publish["%s"]: %v`, subject, err)
+			case <-time.NewTimer(o.Timeout).C:
+				logger.WithContext(o.Context).Errorf(`[nats]: publish["%s"]: publish timeout`, subject)
 			}
 		}()
 	}
 	return nil
 }
 
-func (c *client) Subscribe(subject string, handler broker.Handler, opts ...func(o *broker.SubscribeOptions)) error {
+// Publish .
+func (c *client) Publish(subject string, v interface{}, opts ...func(o *broker.PublishOptions)) error {
+	return errors.Wrapf(c.publish(subject, v, opts...), `[nats]: publish["%s"]`, subject)
+}
+
+// subscribe .
+func (c *client) subscribe(subject string, handler broker.Handler, opts ...func(o *broker.SubscribeOptions)) error {
 	if !c.actived {
-		err := errors.New("connection not ready.")
-		logger.Errorf(`[nats] subscribe["%s"] failed. %s`, subject, err.Error())
-		return err
+		return broker.ErrNotReady
 	}
 
 	if err := broker.CheckSubject(subject); err != nil {
-		logger.Errorf(`[nats] subscribe["%s"] failed. %s`, err.Error())
 		return err
 	}
 
-	logger.Debugf(`[nats] subscribe["%s"]`, subject)
+	logger.Debugf(`[nats]: subscribe["%s"]`, subject)
 
 	var o = broker.ParseSubscribeOptions(opts...)
-	var cb = func(msg *nats.Msg) {
-		msg.Ack()
+	_, err := c.js.QueueSubscribe(subject, o.ConsumerModel(c.id, subject),
+		func(msg *nats.Msg) {
+			msg.Ack()
 
-		logger.Debugf(`[nats] consume["%s"] << %s`, msg.Subject, o.Codec.RawMessage(msg.Data))
-		if err := handler(broker.NewEvent(msg.Subject, msg.Reply, msg.Data, o.Codec)); err != nil {
-			logger.Errorf(`[nats] consume["%s"] failed: %s`, msg.Subject, err.Error())
-		}
-	}
-
-	_, err := c.js.QueueSubscribe(subject, o.ConsumerModel(c.id, subject), cb, nats.Durable(strings.Join([]string{c.id, subject}, ".")))
-	if err != nil {
-		logger.Error(`[nats] subscribe["%s"] failed. %s.`, subject, err.Error())
-		return err
-	}
-	return nil
+			logger.Debugf(`[nats]: consume["%s"]: %s`, msg.Subject, o.Codec.RawMessage(msg.Data))
+			if err := handler(broker.NewEvent(msg.Subject, msg.Reply, msg.Data, o.Codec)); err != nil {
+				logger.Errorf(`[nats]: consume["%s"]: %v`, msg.Subject, err)
+			}
+		},
+		nats.Durable(strings.Join([]string{c.id, subject}, ".")))
+	return err
 }
 
+// Subscribe .
+func (c *client) Subscribe(subject string, handler broker.Handler, opts ...func(o *broker.SubscribeOptions)) error {
+	return errors.Wrapf(c.subscribe(subject, handler, opts...), `[nats]: subscribe["%s"]`, subject)
+}
+
+// Close .
 func (c *client) Close() {
 	if c.actived {
 		c.actived = false

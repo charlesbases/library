@@ -1,9 +1,10 @@
 package jwt
 
 import (
-	"errors"
 	"net/http"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 

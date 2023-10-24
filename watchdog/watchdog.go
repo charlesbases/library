@@ -11,11 +11,7 @@ import (
 
 const envMaxHeapMem = "MAX_HEAP"
 
-var (
-	log = logger.Named("watchdog")
-
-	watermarks = []float64{0.50, 0.60, 0.70, 0.80, 0.85, 0.90, 0.925, 0.95}
-)
+var watermarks = []float64{0.50, 0.60, 0.70, 0.80, 0.85, 0.90, 0.925, 0.95}
 
 // heapMem 从环境变量 envMaxHeapMem 中获取最大内存限制
 func heapMem() uint64 {
@@ -35,6 +31,8 @@ func heapMem() uint64 {
 
 // Memory .
 func Memory() (onstop func()) {
+	log := logger.Named("watchdog")
+
 	// watchdog.HeapProfileDir = "heapprof"
 	// watchdog.HeapProfileThreshold = 0.9
 	// watchdog.HeapProfileMaxCaptures = 10
@@ -50,7 +48,7 @@ func Memory() (onstop func()) {
 			return onstop
 		}
 
-		log.Warnf("failed to initialize heap-driven watchdog. %s.", err.Error())
+		log.Warnf("failed to initialize heap-driven watchdog. %s.", err)
 		log.Warn("trying a cgroup-driven watchdog ...")
 	}
 
@@ -59,7 +57,7 @@ func Memory() (onstop func()) {
 		log.Info("initialized cgroup-driven watchdog.")
 		return onstop
 	} else {
-		log.Warnf("failed to initialize cgroup-driven watchdog. %s.", err.Error())
+		log.Warnf("failed to initialize cgroup-driven watchdog. %s.", err)
 		log.Warnf("trying a system-driven watchdog ...")
 	}
 

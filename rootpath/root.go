@@ -21,6 +21,7 @@ func options(opts ...func(o *Options)) *Options {
 	return options
 }
 
+// Root .
 type Root string
 
 // NewRoot .
@@ -48,8 +49,8 @@ func (r *Root) match(v string, opts *Options) bool {
 
 // IsDir .
 func (r *Root) IsDir() bool {
-	info, _ := os.Lstat(r.String())
-	return info.IsDir()
+	info, err := os.Lstat(r.String())
+	return err == nil && info.IsDir()
 }
 
 // String .
@@ -99,6 +100,7 @@ func (r *Root) Files(opts ...func(o *Options)) ([]*File, error) {
 	})
 }
 
+// File .
 type File string
 
 // String .

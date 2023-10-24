@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/charlesbases/logger"
 	"github.com/gorilla/websocket"
 
 	"github.com/charlesbases/library"
@@ -24,11 +24,9 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin:      func(r *http.Request) bool { return true },
 }
 
-type sessionID string
-
 // Session .
 type Session struct {
-	id            sessionID
+	id            hfwctx.ID
 	subscriptions map[subject]bool
 
 	// request 请求
@@ -52,83 +50,83 @@ type Session struct {
 }
 
 // ping .
-func (session *Session) ping() {
-	if !session.closed {
-		session.ready = true
+func (sess *Session) ping() {
+	if !sess.closed {
+		sess.ready = true
 
-		session.writeEvent(MethodPing, library.NowString())
+		sess.writeEvent(MethodPing, library.NowString())
 	}
 }
 
 // serve .
-func (session *Session) serve() {
-	go session.listening()
+func (sess *Session) serve() {
+	go sess.listening()
 
 	for {
 		select {
-		case <-time.After(session.opts.Heartbeat):
-			if session.ready {
-				session.ready = false
-				session.ctx.Debugf("[WebSocketID: %d] no heartbeat", session.id)
+		case <-time.After(sess.opts.Heartbeat):
+			if sess.ready {
+				sess.ready = false
+				logger.WithContext(sess.ctx).Debugf("[WebSocketID: %s] no heartbeat", sess.id)
 			}
-		case request, ok := <-session.request:
+		case request, ok := <-sess.request:
 			if ok {
 				switch request.Method {
 				case MethodPing:
-					session.ping()
+					sess.ping()
 				case MethodSubscribe:
-					session.subscribe(request.Params)
+					sess.subscribe(request.Params)
 				case MethodUnsubscribe:
-					session.unsubscribe(request.Params)
+					sess.unsubscribe(request.Params)
 				case MethodDisconnect:
-					session.close()
+					sess.close()
 				default:
-					session.WriteError(webserver.StatusParamInvalid.WebError(fmt.Sprintf("invalid method: %s", request.Method)))
+					sess.WriteError(webserver.StatusParamInvalid.WebError(fmt.Sprintf("invalid method: %s", request.Method)))
 				}
 			}
-		case response, ok := <-session.response:
+		case response, ok := <-sess.response:
 			if ok {
-				session.write(response)
+				sess.write(response)
 			}
-		case event, ok := <-session.broadcast:
+		case event, ok := <-sess.broadcast:
 			if ok {
-				session.event(event)
+				sess.event(event)
 			}
-		case <-session.closing:
-			session.disconnect()
+		case <-sess.closing:
+			sess.disconnect()
 			return
 		}
 	}
 }
 
 // listening .
-func (session *Session) listening() {
+func (sess *Session) listening() {
 	for {
 		select {
-		case <-session.closing:
+		case <-sess.closing:
 			return
 		default:
 			request := new(WebSocketRequest)
-			if err := session.conn.ReadJSON(request); err != nil {
-				switch session.isCloseError(err) {
+			if err := sess.conn.ReadJSON(request); err != nil {
+				switch sess.isCloseError(err) {
 				case websocket.CloseNormalClosure, websocket.CloseNoStatusReceived:
 				default:
-					session.ctx.Errorf("[WebSocketID: %d] read message error: %s", session.id, err.Error())
-					session.WriteError(webserver.StatusBadRequest.WebError(err.Error()))
+					logger.WithContext(sess.ctx).Errorf("[WebSocketID: %s] read message error: %s", sess.id, err)
+					sess.WriteError(webserver.StatusBadRequest.WebError(err))
 				}
 
-				session.close()
+				sess.close()
 				return
 			}
 
 			if !store.verifySession(request.ID) {
-				session.WriteError(webserver.StatusParamInvalid.WebError(fmt.Sprintf("invalid session id, %d not connected", request.ID)))
-				session.close()
+				sess.WriteError(webserver.StatusParamInvalid.WebError(fmt.Sprintf("invalid sess id, %s not connected", request.ID)))
+				sess.close()
 				return
 			}
 
-			if session.closed {
-				session.WriteError(webserver.StatusBadRequest.WebError("connect closed"))
+			if sess.closed {
+				sess.WriteError(webserver.StatusBadRequest.WebError("connect closed"))
 				return
 			}
 
@@ -136,25 +134,25 @@ func (session *Session) listening() {
 				goto r
 			}
 
-			if !session.ready {
-				session.WriteError(webserver.StatusBadRequest.WebError("connect not ready"))
+			if !sess.ready {
+				sess.WriteError(webserver.StatusBadRequest.WebError("connect not ready"))
 				continue
 			}
 
 			if request.Params == nil {
-				session.WriteError(webserver.StatusParamInvalid.WebError("params cannot be empty."))
+				sess.WriteError(webserver.StatusParamInvalid.WebError("params cannot be empty."))
 				continue
 			}
 
 		r:
-			session.ctx.Debugf("[WebSocketID: %d] [r] Method: %s", session.id, request.Method.String())
-			session.request <- request
+			logger.WithContext(sess.ctx).Debugf("[WebSocketID: %s] [r] Method: %s", sess.id, request.Method.String())
+			sess.request <- request
 		}
 	}
 }
 
 // isCloseError .
-func (session *Session) isCloseError(err error) int {
+func (sess *Session) isCloseError(err error) int {
 	if e, ok := err.(*websocket.CloseError); ok {
 		return e.Code
 	} else {
@@ -163,43 +161,43 @@ func (session *Session) isCloseError(err error) int {
 }
 
 // write .
-func (session *Session) write(v *WebSocketResponse) error {
-	if session.ready {
-		v.ID = session.id
-		session.ctx.Debugf("[WebSocketID: %d] [w] Method: %s", session.id, v.Method.String())
-		return session.conn.WriteJSON(v)
+func (sess *Session) write(v *WebSocketResponse) error {
+	if sess.ready {
+		v.ID = sess.id
+		logger.WithContext(sess.ctx).Debugf("[WebSocketID: %s] [w] Method: %s", sess.id, v.Method.String())
+		return sess.conn.WriteJSON(v)
 	}
 
-	session.ctx.Debugf("[WebSocketID: %d] write failed. connect not ready.", session.id)
+	logger.WithContext(sess.ctx).Debugf("[WebSocketID: %s] write failed. connect not ready.", sess.id)
 	return nil
 }
 
 // writeEvent WebSocket 返回 Method 相关信息
-func (session *Session) writeEvent(method Method, data interface{}) {
-	session.response <- &WebSocketResponse{
-		ID:     session.id,
+func (sess *Session) writeEvent(method Method, data interface{}) {
+	sess.response <- &WebSocketResponse{
+		ID:     sess.id,
 		Method: method,
 		Data:   data,
 	}
 }
 
 // WriteResponse 手动推送 response 至 WebSocket
-func (session *Session) WriteResponse(data interface{}) {
-	session.writeEvent(MethodResponse, data)
+func (sess *Session) WriteResponse(data interface{}) {
+	sess.writeEvent(MethodResponse, data)
 }
 
 // WriteError WebSocket 返回错误
-func (session *Session) WriteError(err *webserver.WebError) {
-	session.response <- &WebSocketResponse{
-		ID:      session.id,
+func (sess *Session) WriteError(err *webserver.WebError) {
+	sess.response <- &WebSocketResponse{
+		ID:      sess.id,
 		Code:    err.Code,
 		Message: err.Message,
 	}
 }
 
 // Context .
-func (session *Session) Context() *hfwctx.Context {
-	return session.ctx
+func (sess *Session) Context() *hfwctx.Context {
+	return sess.ctx
 }
 
 type subject string
@@ -220,132 +218,132 @@ func (sub subject) verify(tar subject) bool {
 }
 
 // event .
-func (session *Session) event(event *WebSocketBroadcast) {
-	if session.ready {
-		session.lock.RLock()
-		for subject := range session.subscriptions {
+func (sess *Session) event(event *WebSocketBroadcast) {
+	if sess.ready {
+		sess.lock.RLock()
+		for subject := range sess.subscriptions {
 			if subject.verify(event.Subject) {
-				session.writeEvent(MethodBroadcast, event)
+				sess.writeEvent(MethodBroadcast, event)
 				break
 			}
 		}
-		session.lock.RUnlock()
+		sess.lock.RUnlock()
 	}
 }
 
 // topics .
-func (session *Session) topics() []subject {
-	session.lock.RLock()
+func (sess *Session) topics() []subject {
+	sess.lock.RLock()
 
-	var topics = make([]subject, 0, len(session.subscriptions))
-	for subject := range session.subscriptions {
+	var topics = make([]subject, 0, len(sess.subscriptions))
+	for subject := range sess.subscriptions {
 		topics = append(topics, subject)
 	}
-	session.lock.RUnlock()
+	sess.lock.RUnlock()
 
 	return topics
 }
 
 // subscribe .
-func (session *Session) subscribe(params *json.RawMessage) {
+func (sess *Session) subscribe(params *json.RawMessage) {
 	var subjects = make([]subject, 0)
 
 	if err := json.Unmarshal(*params, &subjects); err != nil {
-		session.ctx.Errorf("[WebSocketID: %d] subscribe failed. %s", session.id, err.Error())
-		session.WriteError(webserver.StatusParamInvalid.WebError(err.Error()))
-		session.close()
+		logger.WithContext(sess.ctx).Errorf("[WebSocketID: %s] subscribe failed. %s", sess.id, err)
+		sess.WriteError(webserver.StatusParamInvalid.WebError(err))
+		sess.close()
 		return
 	}
 
 	var subscribers = make([]*subscriber, 0, len(subjects))
 
-	session.lock.Lock()
+	sess.lock.Lock()
 	for _, subject := range subjects {
-		session.subscriptions[subject] = true
+		sess.subscriptions[subject] = true
 
 		subscribers = append(subscribers, &subscriber{
-			sessionID: session.id,
+			sessionID: sess.id,
 			subject:   subject,
-			onEvent:   session.broadcast,
+			onEvent:   sess.broadcast,
 		})
 	}
-	session.lock.Unlock()
+	sess.lock.Unlock()
 
 	go es.subscribe(subscribers...)
 
-	session.writeEvent(MethodSubscribe, session.topics())
+	sess.writeEvent(MethodSubscribe, sess.topics())
 }
 
 // unsubscribe .
-func (session *Session) unsubscribe(params *json.RawMessage) {
+func (sess *Session) unsubscribe(params *json.RawMessage) {
 	var subjects = make([]subject, 0)
 
 	if err := json.Unmarshal(*params, &subjects); err != nil {
-		session.ctx.Errorf("[WebSocketID: %d] unsubscribe failed. %s", session.id, err.Error())
-		session.WriteError(webserver.StatusParamInvalid.WebError(err.Error()))
-		session.close()
+		logger.WithContext(sess.ctx).Errorf("[WebSocketID: %s] unsubscribe failed. %s", sess.id, err)
+		sess.WriteError(webserver.StatusParamInvalid.WebError(err))
+		sess.close()
 		return
 	}
 
 	var subscribers = make([]*subscriber, 0, len(subjects))
 
-	session.lock.Lock()
+	sess.lock.Lock()
 	for _, subject := range subjects {
-		delete(session.subscriptions, subject)
+		delete(sess.subscriptions, subject)
 
 		subscribers = append(subscribers, &subscriber{
-			sessionID: session.id,
+			sessionID: sess.id,
 			subject:   subject,
-			onEvent:   session.broadcast,
+			onEvent:   sess.broadcast,
 		})
 	}
-	session.lock.Unlock()
+	sess.lock.Unlock()
 
 	go es.unsubscribe(subscribers...)
 
-	session.writeEvent(MethodUnsubscribe, session.topics())
+	sess.writeEvent(MethodUnsubscribe, sess.topics())
 }
 
 // close exec session.disconnect
-func (session *Session) close() {
-	session.closing <- struct{}{}
+func (sess *Session) close() {
+	sess.closing <- struct{}{}
 }
 
 // disconnect .
-func (session *Session) disconnect() {
-	session.once.Do(func() {
-		session.ctx.Debugf("[WebSocketID: %d] disconnected", session.id)
+func (sess *Session) disconnect() {
+	sess.once.Do(func() {
+		logger.WithContext(sess.ctx).Debugf("[WebSocketID: %s] disconnected", sess.id)
 
-		session.ready = false
-		session.closed = true
+		sess.ready = false
+		sess.closed = true
 
-		store.dropSession(session.id)
+		store.dropSession(sess.id)
 
-		close(session.closing)
+		close(sess.closing)
 
-		close(session.request)
-		close(session.response)
-		close(session.broadcast)
+		close(sess.request)
+		close(sess.response)
+		close(sess.broadcast)
 
-		if session.conn != nil {
-			session.conn.Close()
-			session.conn = nil
+		if sess.conn != nil {
+			sess.conn.Close()
+			sess.conn = nil
 		}
 
-		session = nil
+		sess = nil
 	})
 }
 
-var store = &pool{store: make(map[sessionID]struct{}, 0)}
+var store = &pool{store: make(map[hfwctx.ID]struct{}, 0)}
 
 // pool .
 type pool struct {
 	lk    sync.RWMutex
-	store map[sessionID]struct{}
+	store map[hfwctx.ID]struct{}
 }
 
 // verifySession .
-func (pool *pool) verifySession(id sessionID) bool {
+func (pool *pool) verifySession(id hfwctx.ID) bool {
 	pool.lk.RLock()
 	_, found := pool.store[id]
 	pool.lk.RUnlock()
@@ -354,8 +352,8 @@ func (pool *pool) verifySession(id sessionID) bool {
 }
 
 // newSession .
-func (pool *pool) createSession() sessionID {
-	id := sessionID(uuid.NewString())
+func (pool *pool) createSession() hfwctx.ID {
+	id := hfwctx.NewID()
 
 	pool.lk.Lock()
 	pool.store[id] = struct{}{}
@@ -365,7 +363,7 @@ func (pool *pool) createSession() sessionID {
 }
 
 // dropSession .
-func (pool *pool) dropSession(id sessionID) {
+func (pool *pool) dropSession(id hfwctx.ID) {
 	pool.lk.Lock()
 	delete(pool.store, id)
 	pool.lk.Unlock()

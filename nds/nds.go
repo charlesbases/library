@@ -34,6 +34,7 @@ func decodeNDS(tid int, l level) float64 {
 	return float64(tid) * 180 / float64(bin)
 }
 
+// TileID .
 type TileID int
 
 // NewTileID .

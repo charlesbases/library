@@ -1,11 +1,10 @@
 package email
 
 import (
-	"fmt"
-
 	"gopkg.in/gomail.v2"
 
-	"github.com/charlesbases/library/logger"
+	"github.com/charlesbases/logger"
+
 	"github.com/charlesbases/library/webmail"
 )
 
@@ -51,14 +50,14 @@ func (c *client) Send(v ...webmail.Message) error {
 				}
 			}))
 		} else {
-			err := fmt.Errorf("unsupported email message type of %T.", x)
-			logger.Errorf(`[webmail.email] %s`, err.Error())
+			err := errors.Errorf("unsupported email message type of %T.", x)
+			logger.Errorf(`[webmail.email] %s`, err)
 			return err
 		}
 	}
 
 	if err := c.DialAndSend(mess...); err != nil {
-		logger.Errorf(`[webmail.email] send failed. %s`, err.Error())
+		logger.Errorf(`[webmail.email] send failed. %s`, err)
 		return err
 	}
 	return nil

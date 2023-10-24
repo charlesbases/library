@@ -2,20 +2,25 @@ package broker
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/pkg/errors"
 )
 
 var (
 	// defaultContext default context
 	defaultContext = context.Background()
+	// defaultCallerSkip default of func caller skip
+	defaultCallerSkip = 1
 	// defaultReconnectWait 重连等待时间
 	defaultReconnectWait = time.Second * 3
 
+	// ErrNotReady .
+	ErrNotReady = errors.New("connection not ready")
 	// ErrInvalidAddrs .
-	ErrInvalidAddrs = errors.New("broker: invalid addrs")
+	ErrInvalidAddrs = errors.New("invalid addrs")
 )
 
 // Client .
@@ -30,6 +35,7 @@ type Client interface {
 	Close()
 }
 
+// Handler with Subscribe
 type Handler func(event Event) error
 
 // JsonMessage .
@@ -44,21 +50,6 @@ type JsonMessage struct {
 	Data interface{} `json:"data"`
 }
 
-var client Client
-
-// SetClient .
-func SetClient(c Client) {
-	client = c
-}
-
-// GetClient .
-func GetClient() (Client, error) {
-	if client != nil {
-		return client, nil
-	}
-	return nil, errors.New("broker client is not initialized.")
-}
-
 // CheckSubject .
 func CheckSubject(t string) error {
 	if len(strings.TrimSpace(t)) == 0 {
@@ -71,4 +62,13 @@ func CheckSubject(t string) error {
 		return errors.New("topic with non UTF-8 strings are not supported")
 	}
 	return nil
+}
+
+// C default client
+var C Client
+
+// Init .
+func Init(c Client, e error) error {
+	C = c
+	return e
 }

@@ -2,6 +2,7 @@ package metadata
 
 import "context"
 
+// Metadata .
 type Metadata map[string]interface{}
 
 type ctxkey struct{}

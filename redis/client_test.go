@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/charlesbases/library/logger"
+	"github.com/charlesbases/logger"
 
 	"github.com/charlesbases/library"
 )

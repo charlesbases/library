@@ -5,9 +5,8 @@ import (
 	"net/http"
 	"runtime"
 
+	"github.com/charlesbases/logger"
 	"github.com/gin-gonic/gin"
-
-	"github.com/charlesbases/library/framework/gin-gonic/hfwctx"
 )
 
 // Recovery .
@@ -19,7 +18,7 @@ func Recovery() gin.HandlerFunc {
 				stack = stack[:runtime.Stack(stack, false)]
 				infor := &p{err: err, stack: stack, request: ctx.Request}
 
-				hfwctx.Encode(ctx).Errorf("\nPanic:   [%s]\nRequest: [%s]\nStack:   [%s]",
+				logger.WithContext(ctx).Errorf("\nPanic:   [%s]\nRequest: [%s]\nStack:   [%s]",
 					infor.err, infor.RequestDesc(), infor.StackAsString(),
 				)
 			}

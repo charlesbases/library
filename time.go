@@ -2,8 +2,10 @@ package library
 
 import "time"
 
+// RFC3339Z .
 const RFC3339Z = "2006-01-02 15:04:05.000"
 
+// TimeString .
 type TimeString string
 
 // Time .
@@ -17,6 +19,7 @@ func (ts TimeString) Timestamp() int64 {
 	return ts.Time().UnixMilli()
 }
 
+// TimeTimestamp .
 type TimeTimestamp int64
 
 // Time .

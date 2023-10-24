@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"testing"
+
+	"github.com/pkg/errors"
 )
 
 func TestLifecycle(t *testing.T) {
@@ -24,16 +26,14 @@ func TestLifecycle(t *testing.T) {
 		&Hook{
 			Name: "b",
 			OnStart: func(ctx context.Context) error {
-				fmt.Println("program b start")
-				return nil
+				return errors.New("test start error")
 			},
 			OnStop: func(ctx context.Context) error {
-				fmt.Println("program b stop")
-				return nil
+				return errors.New("test stop error")
 			},
 		},
 	)
 
-	lf.Start(context.Background())
-	lf.Stop(context.Background())
+	lf.Start()
+	lf.Stop()
 }

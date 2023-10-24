@@ -1,8 +1,9 @@
 package jwtauth
 
 import (
-	"errors"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/dgrijalva/jwt-go"
 )
@@ -11,9 +12,12 @@ import (
 const defaultExpired = time.Hour * 24
 
 var (
+	// ErrSecretInvalid .
 	ErrSecretInvalid = errors.New("the secret not be empty.")
-	ErrTokenExpired  = errors.New("token has expired.")
-	ErrTokenInvalid  = errors.New("invalid token")
+	// ErrTokenExpired .
+	ErrTokenExpired = errors.New("token has expired.")
+	// ErrTokenInvalid .
+	ErrTokenInvalid = errors.New("invalid token")
 )
 
 // UserClaims .

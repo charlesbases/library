@@ -2,7 +2,7 @@ package webserver
 
 // commom ecode
 var (
-	StatusOK = add(0, "StatusOK")
+	StatusOK = add(200, "StatusOK")
 
 	StatusBadRequest   = add(4000, "请求错误")
 	StatusParamInvalid = add(4001, "参数错误")

@@ -37,12 +37,18 @@ type PublishOptions struct {
 	Context context.Context
 	// Codec 序列化方式. default codec.MarshalerType_Json
 	Codec codec.Marshaler
+	// Timeout 消息推送超时时间
+	Timeout time.Duration
+	// caller skip
+	CallerSkip int
 }
 
 // ParsePublishOptions .
 func ParsePublishOptions(opts ...func(o *PublishOptions)) *PublishOptions {
 	o := &PublishOptions{
-		Codec: json.Marshaler,
+		Codec:      json.Marshaler,
+		Timeout:    defaultReconnectWait,
+		CallerSkip: defaultCallerSkip,
 	}
 
 	for _, opt := range opts {

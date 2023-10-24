@@ -1,17 +1,27 @@
 package content
 
+// Type content-type
 type Type int8
 
+// DefaultContentType default of content-type
 const DefaultContentType Type = Json
 
 const (
+	// Text application/text
 	Text Type = iota
+	// Yaml application/yaml
 	Yaml
+	// Json application/json
 	Json
+	// Proto application/proto
 	Proto
+	// Bytes application/bytes
 	Bytes
+	// Stream application/octet-stream
 	Stream
+	// FromData multiparty/from-data
 	FromData
+	// Zip application/zip
 	Zip
 )
 

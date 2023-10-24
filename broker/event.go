@@ -1,7 +1,7 @@
 package broker
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 
 	"github.com/charlesbases/library/codec"
 	"github.com/charlesbases/library/content"
@@ -28,18 +28,22 @@ type event struct {
 	codec codec.Marshaler
 }
 
+// Topic .
 func (e *event) Topic() string {
 	return e.topic
 }
 
+// Reply .
 func (e *event) Reply() string {
 	return e.reply
 }
 
+// Body .
 func (e *event) Body() []byte {
 	return e.body
 }
 
+// Unmarshal .
 func (e *event) Unmarshal(v interface{}) error {
 	switch e.codec.ContentType() {
 	case content.Json:
@@ -47,7 +51,7 @@ func (e *event) Unmarshal(v interface{}) error {
 	case content.Proto:
 		return e.codec.Unmarshal(e.body, v)
 	default:
-		return fmt.Errorf("unsupported of %s", e.codec.ContentType().String())
+		return errors.Errorf("unsupported of %s", e.codec.ContentType().String())
 	}
 }
 

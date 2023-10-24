@@ -39,6 +39,7 @@ func NewDecoder(opts ...func(o *codec.DecodeOptions)) codec.Decoder {
 	return &yamlMarshaler{DecodeOptions: options}
 }
 
+// Decode .
 func (c *yamlMarshaler) Decode(v interface{}) error {
 	if c.Reader != nil {
 		return yaml.NewDecoder(c.Reader).Decode(v)
@@ -54,18 +55,22 @@ func (c *yamlMarshaler) Decode(v interface{}) error {
 	}
 }
 
+// Marshal .
 func (c *yamlMarshaler) Marshal(v interface{}) ([]byte, error) {
 	return yaml.Marshal(v)
 }
 
+// Unmarshal .
 func (c *yamlMarshaler) Unmarshal(data []byte, v interface{}) error {
 	return yaml.Unmarshal(data, v)
 }
 
+// RawMessage .
 func (c *yamlMarshaler) RawMessage(data []byte) string {
 	return string(data)
 }
 
+// ContentType .
 func (c *yamlMarshaler) ContentType() content.Type {
 	return content.Yaml
 }

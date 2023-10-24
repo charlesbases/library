@@ -3,69 +3,62 @@ package storage
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 	"sync"
-	"unicode/utf8"
+
+	"github.com/pkg/errors"
 
 	"google.golang.org/protobuf/proto"
 
 	"github.com/charlesbases/library/content"
-	"github.com/charlesbases/library/regexp"
 )
 
+// ErrNoSuchKey .
 var ErrNoSuchKey = errors.New("NoSuchKey: The specified key does not exist.")
 
+// Client .
 type Client interface {
-	// PutObject put object to storage
+	// PutObject 上传单个对象
 	PutObject(input ObjectInput, opts ...func(o *PutOptions)) error
-	// PutFolder put files in folder to storage
+	// PutFolder 上传本地文件夹，存储路径为 'prefix/root/xxx'
 	PutFolder(bucket string, prefix string, root string, opts ...func(o *PutOptions)) error
 
-	// GetObject get object
+	// GetObject 根据对象路径，获取单个对象
 	GetObject(bucket string, key string, opts ...func(o *GetOptions)) (*ObjectOutputHook, error)
-	// GetObjectsWithIterator get object list
+	// GetObjectsWithIterator 根据对象前缀，获取多个对象
 	GetObjectsWithIterator(bucket string, prefix string, iterator func(keys []*string) error, opts ...func(o *ListOptions)) error
 
-	// DelObject delete object with key
+	// DelObject 删除单个对象
 	DelObject(bucket string, key string, opts ...func(o *DelOptions)) error
-	// DelPrefix delete object list with prefix
-	DelPrefix(bucket string, prefix string, opts ...func(o *DelOptions)) error
+	// DelObjectsWithPrefix 根据对象前缀，删除多个对象
+	DelObjectsWithPrefix(bucket string, prefix string, opts ...func(o *DelOptions)) error
 
-	// Copy copy Object to target
-	// If the source is prefixed, copy all the objects
+	// Copy 对象拷贝
 	Copy(src Position, dst Position, opts ...func(o *CopyOptions)) error
 
-	// IsExist query whether the object exists
-	// If the query is prefixed, the key needs to end with '/'
+	// IsExist 查询对象是否存在
 	IsExist(bucket string, key string, opts ...func(o *GetOptions)) (bool, error)
 
-	// Presign url of object
+	// Presign 获取对象 HTTP 访问路径
 	Presign(bucket string, key string, opts ...func(o *PresignOptions)) (string, error)
 
-	// Compress compress object into '*.tar.gz'
-	// If compressing multiple objects, the key needs to end with '/'
-	Compress(bucket string, key string, dst io.Writer, opts ...func(o *ListOptions)) error
+	// Downloads 根据前缀，批量下载对象至本地存储，本地存储路径为 'root/prefix/xxx'
+	Downloads(bucket string, prefix string, root string, opts ...func(o *ListOptions)) error
 }
 
-var client Client
+// C default Client
+var C Client
 
-// SetClient .
-func SetClient(c Client) {
-	client = c
+// Init .
+func Init(c Client, err error) error {
+	C = c
+	return err
 }
 
-// GetClient .
-func GetClient() (Client, error) {
-	if client != nil {
-		return client, nil
-	}
-	return nil, errors.New("storage client is not initialized.")
-}
-
+// ObjectInput .
 type ObjectInput interface {
 	Bucket() string
 	Key() string
@@ -86,22 +79,27 @@ type input struct {
 	body  io.ReadSeeker
 }
 
+// Bucket .
 func (i *input) Bucket() string {
 	return i.bucket
 }
 
+// Key .
 func (i *input) Key() string {
 	return i.key
 }
 
+// ContentType .
 func (i *input) ContentType() string {
 	return i.ct.String()
 }
 
+// Error .
 func (i *input) Error() error {
 	return i.err
 }
 
+// Close .
 func (i *input) Close() error {
 	if i.close != nil {
 		return i.close()
@@ -110,6 +108,7 @@ func (i *input) Close() error {
 	}
 }
 
+// Body .
 func (i *input) Body() io.ReadSeeker {
 	return i.body
 }
@@ -117,7 +116,7 @@ func (i *input) Body() io.ReadSeeker {
 // InputFile .
 func InputFile(bucket string, key string, file string) ObjectInput {
 	if f, e := os.Open(file); e != nil {
-		return &input{err: e}
+		return &input{bucket: bucket, key: key, err: e}
 	} else {
 		return &input{
 			bucket: bucket,
@@ -147,7 +146,7 @@ func InputNumber(bucket string, key string, v interface{}) ObjectInput {
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
 		return InputString(bucket, key, fmt.Sprintf("%v", v))
 	default:
-		return &input{err: fmt.Errorf(`%T cannot be used as a number.`, v)}
+		return &input{bucket: bucket, key: key, err: errors.Errorf(`%T cannot be used as a number.`, v)}
 	}
 }
 
@@ -164,7 +163,7 @@ func InputBoolean(bucket string, key string, v bool) ObjectInput {
 func InputMarshalJson(bucket string, key string, vPointer interface{}) ObjectInput {
 	data, err := json.Marshal(vPointer)
 	if err != nil {
-		return &input{err: err}
+		return &input{bucket: bucket, key: key, err: err}
 	}
 	return &input{
 		bucket: bucket,
@@ -178,7 +177,7 @@ func InputMarshalJson(bucket string, key string, vPointer interface{}) ObjectInp
 func InputMarshalProto(bucket string, key string, v proto.Message) ObjectInput {
 	data, err := proto.Marshal(v)
 	if err != nil {
-		return &input{err: err}
+		return &input{bucket: bucket, key: key, err: err}
 	}
 	return &input{
 		bucket: bucket,
@@ -198,6 +197,7 @@ func InputReadSeeker(bucket string, key string, body io.ReadSeeker) ObjectInput 
 	}
 }
 
+// ObjectOutputHook .
 type ObjectOutputHook struct {
 	// Fetch get object with io.ReadCloser
 	Fetch func(hook func(output ObjectOutput) error) error
@@ -205,6 +205,7 @@ type ObjectOutputHook struct {
 	Write func(w io.WriterAt) error
 }
 
+// ObjectOutput .
 type ObjectOutput interface {
 	Bucket() string
 	Key() string
@@ -223,6 +224,7 @@ type output struct {
 	once   sync.Once
 }
 
+// Decode .
 func (o *output) Decode(vPointer interface{}) error {
 	buff := new(bytes.Buffer)
 	if _, err := io.Copy(buff, o.body); err != nil {
@@ -259,18 +261,22 @@ func (o *output) Decode(vPointer interface{}) error {
 	return nil
 }
 
+// Bucket .
 func (o *output) Bucket() string {
 	return o.bucket
 }
 
+// Key .
 func (o *output) Key() string {
 	return o.key
 }
 
+// ContentType .
 func (o *output) ContentType() content.Type {
 	return content.Convert(o.ct)
 }
 
+// Close .
 func (o *output) Close() error {
 	o.once.Do(func() {
 		o.body.Close()
@@ -278,6 +284,7 @@ func (o *output) Close() error {
 	return nil
 }
 
+// Body .
 func (o *output) Body() io.ReadCloser {
 	return o.body
 }
@@ -292,28 +299,32 @@ func OutputReadCloser(bucket string, key string, contenttype string, body io.Rea
 	}
 }
 
+// Position .
 type Position interface {
 	Bucket() string
-	Path() string
+	Key() string
 	IsPrefix() bool
 }
 
 // positionRemote .
 type positionRemote struct {
 	bucket string
-	path   string
+	key    string
 
 	isPrefix bool
 }
 
+// Bucket .
 func (p *positionRemote) Bucket() string {
 	return p.bucket
 }
 
-func (p *positionRemote) Path() string {
-	return p.path
+// Key .
+func (p *positionRemote) Key() string {
+	return p.key
 }
 
+// IsPrefix .
 func (p *positionRemote) IsPrefix() bool {
 	return p.isPrefix
 }
@@ -322,38 +333,7 @@ func (p *positionRemote) IsPrefix() bool {
 func PositionRemote(bucket, path string) Position {
 	return &positionRemote{
 		bucket:   bucket,
-		path:     path,
+		key:      path,
 		isPrefix: strings.HasSuffix(path, "/"),
 	}
-}
-
-// CheckBucketName check the compliance of the bucket name.
-func CheckBucketName(v string) error {
-	if len(strings.TrimSpace(v)) == 0 {
-		return errors.New("bucket name cannot be empty")
-	}
-	if regexp.IP.MatchString(v) {
-		return errors.New("bucket name cannot be an ip address")
-	}
-
-	return nil
-}
-
-// CheckObjectNameV1 check the compliance of the object name.
-func CheckObjectNameV1(v string) error {
-	if len(strings.TrimSpace(v)) == 0 {
-		return errors.New("object name cannot be empty")
-	}
-	if !utf8.ValidString(v) {
-		return errors.New("object name with non UTF-8 strings are not supported")
-	}
-	return nil
-}
-
-// CheckObjectNameV2 check the compliance of the object name with CheckObjectNameV1 and verify if the object name ends with '/'.
-func CheckObjectNameV2(v string) error {
-	if strings.HasSuffix(v, "/") {
-		return errors.New("object name cannot end with '/'")
-	}
-	return CheckObjectNameV1(v)
 }

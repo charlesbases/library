@@ -7,7 +7,7 @@ import (
 
 	glogger "gorm.io/gorm/logger"
 
-	"github.com/charlesbases/library/logger"
+	"github.com/charlesbases/logger"
 )
 
 // log .
@@ -18,7 +18,7 @@ type log struct {
 
 // custom .
 func custom(dt string) glogger.Interface {
-	return &log{dt: fmt.Sprintf("[%s] >>> ", dt)}
+	return &log{dt: fmt.Sprintf("[%s] ", dt)}
 }
 
 // warp .
@@ -26,29 +26,34 @@ func (log *log) warp(format string) string {
 	return log.dt + format
 }
 
+// LogMode .
 func (log *log) LogMode(level glogger.LogLevel) glogger.Interface {
 	return log
 }
 
+// Info .
 func (log *log) Info(ctx context.Context, format string, v ...interface{}) {
-	logger.InfofWithContext(ctx, log.warp(format), v...)
+	logger.WithContext(ctx).Infof(log.warp(format), v...)
 }
 
+// Warn .
 func (log *log) Warn(ctx context.Context, format string, v ...interface{}) {
-	logger.WarnfWithContext(ctx, log.warp(format), v...)
+	logger.WithContext(ctx).Warnf(log.warp(format), v...)
 }
 
+// Error .
 func (log *log) Error(ctx context.Context, format string, v ...interface{}) {
-	logger.ErrorfWithContext(ctx, log.warp(format), v...)
+	logger.WithContext(ctx).Errorf(log.warp(format), v...)
 }
 
+// Trace .
 func (log *log) Trace(ctx context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {
 	elapsed := time.Since(begin)
 	sql, rows := fc()
 
 	if err != nil /* && !errors.Is(err, gorm.ErrRecordNotFound)*/ {
-		logger.ErrorfWithContext(ctx, log.warp("%s | %s"), sql, err.Error())
+		logger.CallerSkip(5).WithContext(ctx).Errorf(log.warp("%s | %v"), sql, err)
 	} else {
-		logger.DebugfWithContext(ctx, log.warp("%s | %d rows | %v"), sql, rows, elapsed)
+		logger.CallerSkip(3).WithContext(ctx).Debugf(log.warp("%s | %d rows | %v"), sql, rows, elapsed)
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"strconv"
 )
 
+// Number .
 type Number interface {
 	// ToBin 二进制
 	ToBin() string
@@ -16,14 +17,17 @@ type Number interface {
 
 type number uint64
 
+// ToBin .
 func (n number) ToBin() string {
 	return fmt.Sprintf(`%b`, n)
 }
 
+// ToDec .
 func (n number) ToDec() uint64 {
 	return uint64(n)
 }
 
+// ToHex .
 func (n number) ToHex() string {
 	return fmt.Sprintf(`%X`, n)
 }

@@ -1,11 +1,13 @@
 package websocket
 
 import (
-	"errors"
 	"sync"
+
+	"github.com/pkg/errors"
 
 	"github.com/charlesbases/library"
 	"github.com/charlesbases/library/broker"
+	"github.com/charlesbases/library/framework/gin-gonic/hfwctx"
 )
 
 var es = &eventStaion{subjects: make(map[subject]subscriberGroup, 0)}
@@ -20,11 +22,11 @@ type eventStaion struct {
 }
 
 // subscriberGroup .
-type subscriberGroup map[sessionID]*subscriber
+type subscriberGroup map[hfwctx.ID]*subscriber
 
 // subscriber .
 type subscriber struct {
-	sessionID sessionID
+	sessionID hfwctx.ID
 	subject   subject
 
 	onEvent chan *WebSocketBroadcast
@@ -67,7 +69,7 @@ func (es *eventStaion) unsubscribe(subs ...*subscriber) {
 
 // newSubscriberGroup .
 func (es *eventStaion) newSubscriberGroup(subject subject) subscriberGroup {
-	var subscriberGroup = make(map[sessionID]*subscriber, 0)
+	var subscriberGroup = make(map[hfwctx.ID]*subscriber, 0)
 	es.subjects[subject] = subscriberGroup
 
 	// broker.Subscribe

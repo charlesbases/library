@@ -1,7 +1,7 @@
 package proto
 
 import (
-	"errors"
+	"github.com/pkg/errors"
 
 	"github.com/golang/protobuf/proto"
 
@@ -9,6 +9,7 @@ import (
 	"github.com/charlesbases/library/content"
 )
 
+// ErrInvalidType .
 var ErrInvalidType = errors.New("proto: not implemented")
 
 const mess = "[ProtoMessage]"
@@ -30,6 +31,7 @@ func NewMarshaler(opts ...func(o *codec.MarshalOptions)) codec.Marshaler {
 	return &protoMarshaler{MarshalOptions: options}
 }
 
+// Marshal .
 func (*protoMarshaler) Marshal(v interface{}) ([]byte, error) {
 	if pv, ok := v.(proto.Message); ok {
 		return proto.Marshal(pv)
@@ -38,14 +40,17 @@ func (*protoMarshaler) Marshal(v interface{}) ([]byte, error) {
 	}
 }
 
+// Unmarshal .
 func (*protoMarshaler) Unmarshal(data []byte, v interface{}) error {
 	return proto.Unmarshal(data, v.(proto.Message))
 }
 
+// RawMessage .
 func (c *protoMarshaler) RawMessage(data []byte) string {
 	return mess
 }
 
+// ContentType .
 func (c *protoMarshaler) ContentType() content.Type {
 	return content.Proto
 }

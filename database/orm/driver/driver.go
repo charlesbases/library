@@ -8,6 +8,7 @@ import (
 	"github.com/charlesbases/library/database"
 )
 
+// Driver .
 type Driver interface {
 	Dialer(optons *database.Options) gorm.Dialector
 	Type() string

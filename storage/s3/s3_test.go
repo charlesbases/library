@@ -1,21 +1,19 @@
 package s3
 
 import (
-	"context"
-	"fmt"
 	"math"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/charlesbases/logger"
 
 	"github.com/charlesbases/library"
-	"github.com/charlesbases/library/sonyflake"
 	"github.com/charlesbases/library/storage"
 )
 
 var (
+	c storage.Client
+
 	clientBOS = func() (storage.Client, error) {
 		endpoint := "s3.bcebos.cncq.icpc.changan.com"
 		accessKey := "437e8bdc81b14da796789da67667dd52"
@@ -30,237 +28,240 @@ var (
 		return NewClient(endpoint, accessKey, secretKey)
 	}
 
-	key = func(v string) string {
+	keyPrefix = func(v string) string {
 		return "testdata/data/" + v
 	}
 
 	mxdata = "mxdata"
 )
 
-func TestS3Client_PutObject(t *testing.T) {
-	cli, _ := clientBOS()
+const (
+	// 上传文件夹本地路径
+	root = `C:\Users\sun\Desktop\test\auth`
+	// 远程文件下载带本地
+	folder = `C:\Users\sun\Desktop\test\copy`
+	// s3路径
+	src = "auth/"
+	// 对象拷贝时的路径
+	dst = "copy/"
+)
 
-	ctx := context.WithValue(context.Background(), library.HeaderTraceID, sonyflake.NextID())
+func init() {
+	logger.SetDefault(func(o *logger.Options) {
+		o.Colourful = true
+	})
 
-	// string
-	{
-		if err := cli.PutObject(storage.InputString(mxdata, key("simple/string"), time.Now().String()), func(o *storage.PutOptions) { o.Context = ctx }); err != nil {
-			logger.Fatalf("string ==> %s", err.Error())
-		}
-	}
-
-	// number
-	{
-		if err := cli.PutObject(storage.InputNumber(mxdata, key("simple/number.int"), time.Now().Second()), func(o *storage.PutOptions) { o.Context = ctx }); err != nil {
-			logger.Fatalf("number ==> %s", err.Error())
-		}
-		if err := cli.PutObject(storage.InputNumber(mxdata, key("simple/number.folat"), math.Pi), func(o *storage.PutOptions) { o.Context = ctx }); err != nil {
-			logger.Fatalf("number ==> %s", err.Error())
-		}
-		// if err := cli.PutObject(storage.InputNumber(mxdata, key("simple/number.string"), time.Now())); err != nil {
-		// 	logger.Errorf("number ==> %s", err.Error())
-		// }
-	}
-
-	// boolean
-	{
-		if err := cli.PutObject(storage.InputBoolean(mxdata, key("simple/boolean"), true), func(o *storage.PutOptions) { o.Context = ctx }); err != nil {
-			logger.Fatalf("boolean ==> %s", err.Error())
-		}
-	}
-
-	// json
-	{
-		var v = map[string]string{"date": time.Now().String()}
-		if err := cli.PutObject(storage.InputMarshalJson(mxdata, key("simple/object.json"), &v), func(o *storage.PutOptions) { o.Context = ctx }); err != nil {
-			logger.Fatalf("object.json ==> %s", err.Error())
-		}
-	}
-
-	// file
-	{
-		if err := cli.PutObject(storage.InputFile(mxdata, key("simple/file"), "os.go"), func(o *storage.PutOptions) { o.Context = ctx }); err != nil {
-			logger.Fatalf("file ==> %s", err.Error())
-		}
-	}
-
-	// io.ReadSeeker
-	{
-		f, err := os.Open("os.go")
-		if err != nil {
-			logger.Fatal(err.Error())
-		}
-		defer f.Close()
-
-		if err := cli.PutObject(storage.InputReadSeeker(mxdata, key("simple/readseeker"), f), func(o *storage.PutOptions) { o.Context = ctx }); err != nil {
-			logger.Fatalf("readseeker ==> %s", err.Error())
-		}
-	}
-}
-
-func TestS3Client_GetObject(t *testing.T) {
-	cli, _ := clientBOS()
-
-	// string
-	{
-		if hook, err := cli.GetObject(mxdata, key("strinag")); err != nil {
-			logger.Fatalf("string ==> %s", err.Error())
-		} else {
-			var v string
-
-			if err := hook.Fetch(func(output storage.ObjectOutput) error {
-				return output.Decode(&v)
-			}); err != nil {
-				logger.Fatalf("string ==> %s", err.Error())
-			}
-
-			logger.Debugf(`string ==> %s`, v)
-		}
-	}
-
-	// number
-	{
-		if hook, err := cli.GetObject(mxdata, key("number.int")); err != nil {
-			logger.Fatalf("number.int ==> %s", err.Error())
-		} else {
-			var v int
-
-			if err := hook.Fetch(func(output storage.ObjectOutput) error {
-				return output.Decode(&v)
-			}); err != nil {
-				logger.Fatalf("number.int ==> %s", err.Error())
-			}
-
-			logger.Debugf(`number.int ==> %d`, v)
-		}
-
-		if hook, err := cli.GetObject(mxdata, key("number.folat")); err != nil {
-			logger.Fatalf("number.folat ==> %s", err.Error())
-		} else {
-			var v float64
-
-			if err := hook.Fetch(func(output storage.ObjectOutput) error {
-				return output.Decode(&v)
-			}); err != nil {
-				logger.Fatalf("number.folat ==> %s", err.Error())
-			}
-
-			logger.Debugf(`number.folat ==> %f`, v)
-		}
-	}
-
-	// boolean
-	{
-		if hook, err := cli.GetObject(mxdata, key("boolean")); err != nil {
-			logger.Fatalf("boolean ==> %s", err.Error())
-		} else {
-			var v bool
-
-			if err := hook.Fetch(func(output storage.ObjectOutput) error {
-				return output.Decode(&v)
-			}); err != nil {
-				logger.Fatalf("boolean ==> %s", err.Error())
-			}
-
-			logger.Debugf(`boolean ==> %v`, v)
-		}
-	}
-
-	// json
-	{
-		if hook, err := cli.GetObject(mxdata, key("object.json")); err != nil {
-			logger.Fatalf("object.json ==> %s", err.Error())
-		} else {
-			var v map[string]string
-
-			if err := hook.Fetch(func(output storage.ObjectOutput) error {
-				return output.Decode(&v)
-			}); err != nil {
-				logger.Fatalf("object.json ==> %s", err.Error())
-			}
-
-			logger.Debugf(`object.json ==> %v`, v)
-		}
-	}
-}
-
-func TestS3Client_DelObject(t *testing.T) {
-	cli, _ := clientBOS()
-
-	// put
-	if err := cli.PutObject(storage.InputNumber(mxdata, key("del.int"), time.Now().Second())); err != nil {
-		logger.Fatalf("del.int ==> %s", err.Error())
-	}
-	if found, err := cli.IsExist(mxdata, key("del.int")); err != nil {
-		logger.Fatalf("del.int ==> %s", err.Error())
-	} else {
-		logger.Debugf("del.int ==> %v", found)
-	}
-
-	// del
-	if err := cli.DelObject(mxdata, key("del.int")); err != nil {
-		logger.Fatalf("del.int ==> %s", err.Error())
-	}
-	if found, err := cli.IsExist(mxdata, key("del.int")); err != nil {
-		logger.Fatalf("del.int ==> %s", err.Error())
-	} else {
-		logger.Debugf("del.int ==> %v", found)
-	}
-}
-
-func TestS3Client_DelPrefix(t *testing.T) {
-	cli, _ := clientBOS()
-
-	if err := cli.DelPrefix(mxdata, key("folder")); err != nil {
-		logger.Fatal(err)
-	}
-}
-
-func TestS3Client_PutFolder(t *testing.T) {
-	cli, _ := clientBOS()
-
-	if err := cli.PutFolder(mxdata, key("20221221-011/"), `C:\Users\sun\Desktop\20221221-011`); err != nil {
-		logger.Fatal(err)
-	}
-}
-
-func TestS3Client_GetObjectsWithIterator(t *testing.T) {
-	cli, _ := clientBOS()
-
-	var count int
-	if err := cli.GetObjectsWithIterator(mxdata, key("20221221-011"), func(keys []*string) error {
-		count += len(keys)
-
-		for _, key := range keys {
-			fmt.Println(*key)
-		}
-		return nil
-	}); err != nil {
-		logger.Fatal(err)
-	}
-
-	fmt.Println("==>", count)
-}
-
-func TestS3Client_Copy(t *testing.T) {
-	cli, _ := clientBOS()
-
-	err := cli.Copy(storage.PositionRemote(mxdata, key("simple/")), storage.PositionRemote(mxdata, key("simple1/")))
+	client, err := clientBOS()
 	if err != nil {
 		logger.Fatal(err)
 	}
+	c = client
 }
 
-func TestS3Client_Compress(t *testing.T) {
-	cli, _ := clientBOS()
+// PutObject
+// GetObject
+// DelObject
+// IsExist
+func TestS3(t *testing.T) {
+	t.Run("PutObject", func(t *testing.T) {
+		key := "int"
+		t.Run(key, func(t *testing.T) {
+			stderr(c.PutObject(storage.InputNumber(mxdata, keyPrefix(key), time.Now().UnixMicro())))
+		})
 
-	f, e := os.Create(`data.tar.gz`)
-	if e != nil {
-		logger.Fatal(e)
+		key = "bool"
+		t.Run(key, func(t *testing.T) {
+			stderr(c.PutObject(storage.InputBoolean(mxdata, keyPrefix(key), true)))
+		})
+
+		key = "float"
+		t.Run(key, func(t *testing.T) {
+			stderr(c.PutObject(storage.InputNumber(mxdata, keyPrefix(key), math.Pi)))
+		})
+
+		key = "string"
+		t.Run(key, func(t *testing.T) {
+			stderr(c.PutObject(storage.InputString(mxdata, keyPrefix(key), library.NowString())))
+		})
+	})
+
+	t.Run("GetObject", func(t *testing.T) {
+		key := "int"
+		t.Run(key, func(t *testing.T) {
+			if outhook, err := c.GetObject(mxdata, keyPrefix(key)); err != nil {
+				stderr(err)
+			} else {
+				var v interface{}
+				if err := outhook.Fetch(func(output storage.ObjectOutput) error {
+					return output.Decode(&v)
+				}); err != nil {
+					stderr(err)
+				} else {
+					logger.Debugf("[aws-s3]: %v", v)
+				}
+			}
+		})
+
+		key = "bool"
+		t.Run(key, func(t *testing.T) {
+			if outhook, err := c.GetObject(mxdata, keyPrefix(key)); err != nil {
+				stderr(err)
+			} else {
+				var v bool
+				if err := outhook.Fetch(func(output storage.ObjectOutput) error {
+					return output.Decode(&v)
+				}); err != nil {
+					stderr(err)
+				} else {
+					logger.Debugf("[aws-s3]: %v", v)
+				}
+			}
+		})
+
+		key = "float"
+		t.Run(key, func(t *testing.T) {
+			if outhook, err := c.GetObject(mxdata, keyPrefix(key)); err != nil {
+				stderr(err)
+			} else {
+				var v float64
+				if err := outhook.Fetch(func(output storage.ObjectOutput) error {
+					return output.Decode(&v)
+				}); err != nil {
+					stderr(err)
+				} else {
+					logger.Debugf("[aws-s3]: %v", v)
+				}
+			}
+		})
+
+		key = "string"
+		t.Run(key, func(t *testing.T) {
+			if outhook, err := c.GetObject(mxdata, keyPrefix(key)); err != nil {
+				stderr(err)
+			} else {
+				var v string
+				if err := outhook.Fetch(func(output storage.ObjectOutput) error {
+					return output.Decode(&v)
+				}); err != nil {
+					stderr(err)
+				} else {
+					logger.Debugf("[aws-s3]: %v", v)
+				}
+			}
+		})
+
+		key = "notfound"
+		t.Run(key, func(t *testing.T) {
+			if outhook, err := c.GetObject(mxdata, keyPrefix(key)); err != nil {
+				stderr(err)
+			} else {
+				var v string
+				if err := outhook.Fetch(func(output storage.ObjectOutput) error {
+					return output.Decode(&v)
+				}); err != nil {
+					stderr(err)
+				} else {
+					logger.Debugf("[aws-s3]: %v", v)
+				}
+			}
+		})
+	})
+
+	t.Run("DelObject", func(t *testing.T) {
+		key := "int"
+		t.Run(key, func(t *testing.T) {
+			stderr(c.DelObject(mxdata, keyPrefix(key)))
+		})
+
+		key = "bool"
+		t.Run(key, func(t *testing.T) {
+			stderr(c.DelObject(mxdata, keyPrefix(key)))
+		})
+
+		key = "float"
+		t.Run(key, func(t *testing.T) {
+			stderr(c.DelObject(mxdata, keyPrefix(key)))
+		})
+
+		key = "string"
+		t.Run(key, func(t *testing.T) {
+			stderr(c.DelObject(mxdata, keyPrefix(key)))
+		})
+
+		key = "notfound"
+		t.Run(key, func(t *testing.T) {
+			stderr(c.DelObject(mxdata, keyPrefix(key)))
+		})
+	})
+}
+
+// PutFolder
+// Copy
+// GetObjectsWithIterator
+// Downloads
+// DelObjectsWithPrefix
+// IsExist
+// Presign
+func BenchmarkS3(b *testing.B) {
+	var bench = func(f func()) {
+		b.ResetTimer()
+		f()
+		b.StopTimer()
 	}
-	defer f.Close()
 
-	if err := cli.Compress(mxdata, key("20221221-011/"), f); err != nil {
-		logger.Fatal(err)
+	b.Run("PutFolder", func(b *testing.B) {
+		bench(func() {
+			stderr(c.PutFolder(mxdata, src, root))
+		})
+	})
+
+	b.Run("Copy", func(b *testing.B) {
+		stderr(c.Copy(storage.PositionRemote(mxdata, src), storage.PositionRemote(mxdata, dst)))
+	})
+
+	b.Run("GetObjectsWithIterator", func(b *testing.B) {
+		bench(func() {
+			var total int
+			stderr(c.GetObjectsWithIterator(mxdata, dst, func(keys []*string) error {
+				total += len(keys)
+				return nil
+			}))
+			logger.Debug(total)
+		})
+	})
+
+	b.Run("Downloads", func(b *testing.B) {
+		bench(func() {
+			stderr(c.Downloads(mxdata, dst, folder))
+		})
+	})
+
+	b.Run("DelObjectsWithPrefix", func(b *testing.B) {
+		bench(func() {
+			stderr(c.DelObjectsWithPrefix(mxdata, dst))
+		})
+	})
+
+	b.Run("IsExist", func(b *testing.B) {
+		bench(func() {
+			exists, err := c.IsExist(mxdata, dst)
+			stderr(err)
+			logger.Debug(exists)
+		})
+	})
+
+	b.Run("Presign", func(b *testing.B) {
+		bench(func() {
+			url, err := c.Presign(mxdata, dst)
+			stderr(err)
+			logger.Debug(url)
+		})
+	})
+}
+
+// stderr .
+func stderr(err error) {
+	if err != nil {
+		logger.Error(err)
 	}
 }

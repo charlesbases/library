@@ -10,7 +10,6 @@ import (
 	"github.com/charlesbases/library/broker"
 	"github.com/charlesbases/library/codec/json"
 	"github.com/charlesbases/library/lifecycle"
-	"github.com/charlesbases/library/storage"
 )
 
 var model = NormalModel
@@ -38,8 +37,7 @@ type Server struct {
 
 	lifecycle *lifecycle.Lifecycle
 
-	engine  *gin.Engine
-	storage storage.Client
+	engine *gin.Engine
 }
 
 // Use .
@@ -62,27 +60,14 @@ func (srv *Server) RegisterRouterGroup(uri string, fn func(r *Router), handlers 
 	fn(&Router{srv.engine.Group(uri, handlers...)})
 }
 
-// Storage .
-func (srv *Server) Storage() (storage.Client, error) {
-	return storage.GetClient()
-}
-
 // Publish 消息异步发布
 func (srv *Server) Publish(topic string, v interface{}, opts ...func(o *broker.PublishOptions)) error {
-	if client, err := broker.GetClient(); err != nil {
-		return err
-	} else {
-		return client.Publish(topic, v, opts...)
-	}
+	return broker.C.Publish(topic, v, opts...)
 }
 
 // Subscribe 消息异步订阅
 func (srv *Server) Subscribe(topic string, handler broker.Handler, opts ...func(o *broker.SubscribeOptions)) error {
-	if client, err := broker.GetClient(); err != nil {
-		return err
-	} else {
-		return client.Subscribe(topic, handler, opts...)
-	}
+	return broker.C.Subscribe(topic, handler, opts...)
 }
 
 // Unmarshal 序列化 configuration 中的自定义配置项

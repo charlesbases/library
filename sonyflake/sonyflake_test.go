@@ -1,36 +1,31 @@
 package sonyflake
 
 import (
-	"fmt"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 )
 
-func Test(t *testing.T) {
-	var count = 10000
-
-	// uuid
-	{
-		start := time.Now()
-		for i := 0; i < count; i++ {
-			uuid.New().ID()
-		}
-		fmt.Println("uuid:", time.Since(start)) // 1.0408ms
+func Benchmark(b *testing.B) {
+	var bench = func(f func()) {
+		b.ResetTimer()
+		f()
+		b.StopTimer()
 	}
 
-	// sonyflake
-	{
-		start := time.Now()
-		for i := 0; i < count; i++ {
-			NextID()
-		}
-		fmt.Println("sonyflake:", time.Since(start)) // 391.886ms
-	}
-}
+	b.Run("uuid", func(b *testing.B) {
+		bench(func() {
+			for i := 0; i < 10000; i++ {
+				uuid.New().ID()
+			}
+		})
+	})
 
-func TestNextID(t *testing.T) {
-	fmt.Println(uuid.New().ID())
-	fmt.Println(NextID())
+	b.Run("sonyflake", func(b *testing.B) {
+		bench(func() {
+			for i := 0; i < 10000; i++ {
+				NextID()
+			}
+		})
+	})
 }

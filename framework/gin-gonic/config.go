@@ -2,7 +2,6 @@ package gin_gonic
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"github.com/charlesbases/logger/filewriter"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/charlesbases/library/broker"
@@ -20,6 +20,7 @@ import (
 	"github.com/charlesbases/library/database"
 	"github.com/charlesbases/library/database/orm"
 	"github.com/charlesbases/library/database/orm/driver"
+	"github.com/charlesbases/library/framework/gin-gonic/hfwctx"
 	"github.com/charlesbases/library/framework/gin-gonic/middlewares"
 	"github.com/charlesbases/library/framework/gin-gonic/middlewares/jwt"
 	"github.com/charlesbases/library/framework/gin-gonic/websocket"
@@ -71,6 +72,7 @@ type logging struct {
 	OutputPath string `yaml:"outputPath"`
 	MaxRolls   int    `yaml:"maxRolls"`
 	Minlevel   string `yaml:"minlevel"`
+	Colourful  bool   `yaml:"colourful"`
 }
 
 // metrics .
@@ -188,8 +190,13 @@ func (c *configuration) engine() *gin.Engine {
 	// logging
 	logger.SetDefault(func(o *logger.Options) {
 		conf := c.Spec.Logging
+		o.Colourful = conf.Colourful
 		o.MinLevel = conf.Minlevel
-		o.Writer = filewriter.New(filewriter.OutputPath(conf.OutputPath), filewriter.MaxRolls(conf.MaxRolls))
+		o.ContextHook = hfwctx.ContextHook
+		o.Writer = filewriter.New(func(o *filewriter.Options) {
+			o.FilePath = conf.OutputPath
+			o.MaxRolls = conf.MaxRolls
+		})
 	})
 
 	// jwt
@@ -225,7 +232,7 @@ func (c *configuration) redis(id string) *lifecycle.Hook {
 			case "cluster":
 				cmdable = redis.RedisCluster
 			default:
-				return fmt.Errorf(`load configuration failed: unsupported values of 'spec.plugins.redis.type: "%s"'`, c.Spec.Plugins.Database.Type)
+				return errors.Errorf(`load configuration failed: unsupported values of 'spec.plugins.redis.type: "%s"'`, c.Spec.Plugins.Database.Type)
 			}
 
 			return redis.Init(id, func(o *redis.Options) {
@@ -238,7 +245,10 @@ func (c *configuration) redis(id string) *lifecycle.Hook {
 			})
 		},
 		OnStop: func(ctx context.Context) error {
-			return redis.Close()
+			if redis.Client() != nil {
+				return redis.Close()
+			}
+			return nil
 		},
 	}
 }
@@ -254,31 +264,23 @@ func (c *configuration) broker(id string) *lifecycle.Hook {
 		OnStart: func(ctx context.Context) error {
 			switch c.Spec.Plugins.Broker.Type {
 			case "nats":
-				client, err := nats.NewClient(id, func(o *broker.Options) {
+				return broker.Init(nats.NewClient(id, func(o *broker.Options) {
 					o.Address = c.Spec.Plugins.Broker.Address
 					o.ReconnectWait = time.Duration(c.Spec.Plugins.Broker.ReconnectWait) * time.Second
-				})
-
-				broker.SetClient(client)
-				return err
+				}))
 			case "kafka":
-				client, err := kafka.NewClient(id, func(o *broker.Options) {
+				return broker.Init(kafka.NewClient(id, func(o *broker.Options) {
 					o.Version = c.Spec.Plugins.Broker.Version
 					o.Address = c.Spec.Plugins.Broker.Address
 					o.ReconnectWait = time.Duration(c.Spec.Plugins.Broker.ReconnectWait) * time.Second
-				})
-
-				broker.SetClient(client)
-				return err
+				}))
 			default:
-				return fmt.Errorf(`load configuration failed: unsupported values of 'spec.plugins.broker.type: "%s"'`, c.Spec.Plugins.Broker.Type)
+				return errors.Errorf(`load configuration failed: unsupported values of 'spec.plugins.broker.type: "%s"'`, c.Spec.Plugins.Broker.Type)
 			}
 		},
 		OnStop: func(ctx context.Context) error {
-			if client, err := broker.GetClient(); err != nil {
-				return err
-			} else {
-				client.Close()
+			if broker.C != nil {
+				broker.C.Close()
 			}
 			return nil
 		},
@@ -296,19 +298,16 @@ func (c *configuration) storage() *lifecycle.Hook {
 		OnStart: func(ctx context.Context) error {
 			switch c.Spec.Plugins.Storage.Type {
 			case "s3":
-				client, err := s3.NewClient(
+				return storage.Init(s3.NewClient(
 					c.Spec.Plugins.Storage.Address,
 					c.Spec.Plugins.Storage.AccessKey,
 					c.Spec.Plugins.Storage.SecretKey,
 					func(o *storage.Options) {
 						o.Timeout = time.Duration(c.Spec.Plugins.Storage.Timeout) * time.Second
 						o.UseSSL = c.Spec.Plugins.Storage.UseSSL
-					})
-
-				storage.SetClient(client)
-				return err
+					}))
 			default:
-				return fmt.Errorf(`load configuration failed: unsupported values of 'spec.plugins.storage.type: "%s"'`, c.Spec.Plugins.Storage.Type)
+				return errors.Errorf(`load configuration failed: unsupported values of 'spec.plugins.storage.type: "%s"'`, c.Spec.Plugins.Storage.Type)
 			}
 		},
 	}
@@ -330,7 +329,7 @@ func (c *configuration) database() *lifecycle.Hook {
 			case "postgres":
 				dr = new(driver.Postgres)
 			default:
-				return fmt.Errorf(`load configuration failed: unsupported values of 'spec.plugins.database.type: "%s"'`, c.Spec.Plugins.Database.Type)
+				return errors.Errorf(`load configuration failed: unsupported values of 'spec.plugins.database.type: "%s"'`, c.Spec.Plugins.Database.Type)
 			}
 
 			return orm.Init(dr, func(o *database.Options) {
@@ -351,12 +350,7 @@ func (c *configuration) websocket() *lifecycle.Hook {
 	return &lifecycle.Hook{
 		Name: "websocket",
 		OnStart: func(ctx context.Context) error {
-			client, err := broker.GetClient()
-			if err != nil {
-				return err
-			}
-			websocket.InitStation(client)
-			return nil
+			return websocket.InitStation(broker.C)
 		},
 	}
 }
@@ -364,7 +358,7 @@ func (c *configuration) websocket() *lifecycle.Hook {
 // watchdog .
 func (c *configuration) watchdog() *lifecycle.Hook {
 	if c.Spec.Watchdog.Enable {
-		var onstop func()
+		var onstop = func() {}
 
 		return &lifecycle.Hook{
 			Name: "watchdog",
@@ -421,6 +415,11 @@ func (c *configuration) server() *Server {
 	// gin.Engine
 	srv.engine = c.engine()
 
+	// watchdog
+	if hook := c.watchdog(); hook != nil {
+		srv.lifecycle.Append(hook)
+	}
+
 	// redis
 	if hook := c.redis(srv.id); hook != nil {
 		srv.lifecycle.Append(hook)
@@ -444,11 +443,6 @@ func (c *configuration) server() *Server {
 	// websocket
 	// 若启用 websocket 的 subscribe 功能，websocket.InitStation() 需要在 broker 初始化之后调用
 	if hook := c.websocket(); hook != nil {
-		srv.lifecycle.Append(hook)
-	}
-
-	// watchdog
-	if hook := c.watchdog(); hook != nil {
 		srv.lifecycle.Append(hook)
 	}
 

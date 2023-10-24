@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/charlesbases/library/logger"
+	"github.com/charlesbases/logger"
 )
 
 // ecodes register codes

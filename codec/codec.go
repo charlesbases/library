@@ -6,10 +6,12 @@ import (
 	"github.com/charlesbases/library/content"
 )
 
+// Decoder .
 type Decoder interface {
 	Decode(v interface{}) error
 }
 
+// Marshaler .
 type Marshaler interface {
 	Marshal(v interface{}) ([]byte, error)
 	Unmarshal(data []byte, v interface{}) error

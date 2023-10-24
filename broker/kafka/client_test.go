@@ -8,9 +8,10 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/charlesbases/logger"
+
 	"github.com/charlesbases/library"
 	"github.com/charlesbases/library/broker"
-	"github.com/charlesbases/library/logger"
 )
 
 func Test(t *testing.T) {

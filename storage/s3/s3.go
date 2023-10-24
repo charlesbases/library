@@ -3,13 +3,15 @@ package s3
 import (
 	"context"
 	"crypto/tls"
-	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/charlesbases/salmon"
+	"github.com/pkg/errors"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -18,75 +20,75 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 
-	"github.com/charlesbases/library/compress/gzip"
-	"github.com/charlesbases/library/logger"
+	"github.com/charlesbases/logger"
+
 	"github.com/charlesbases/library/rootpath"
 	"github.com/charlesbases/library/storage"
 )
 
 const (
+	// defaultPoolSize 批量对象操作时的并发数
+	defaultPoolSize = 1000
+	// defaultFilePerm default of file perm
+	defaultFilePerm = 0644
+	// defaultFolderPerm default folder perm
+	defaultFolderPerm = 0755
 	// defaultS3MaxKeys default maxkey with aws-s3
 	defaultS3MaxKeys int = 1000
-	// defaultPartSize s3manager.Uploader and s3manager.Downloader default PsrtSize. 128 Mib
-	defaultPartSize = 128 * 1 << 20
-	// defaultPartSize s3manager.Uploader and s3manager.Downloader default Concurrency.
-	// 压缩文件时，archive/tar 不支持 io.WaritAt 随机写入，所以不可使用协程并发写入，只能顺序写入。
-	defaultConcurrency = 1
+	// defaultS3ManagerPartSize s3manager.Uploader and s3manager.Downloader default PsrtSize. 128 Mib
+	defaultS3ManagerPartSize = 128 * 1 << 20
+	// defaultS3ManagerConcurrency s3manager.Uploader and s3manager.Downloader default Concurrency.
+	defaultS3ManagerConcurrency = 1
 )
 
 // s3Client .
 type s3Client struct {
-	s3 *s3.S3
+	s3   *s3.S3
+	opts *storage.Options
 
 	uploader   *s3manager.Uploader
 	downloader *s3manager.Downloader
-
-	options *storage.Options
 }
 
-// pathJoin .
-func pathJoin(v ...string) string {
+// pathjoin .
+func pathjoin(v ...string) string {
 	return strings.Join(v, "/")
 }
 
-// decodeAwsErr .
-func decodeAwsErr(err error) error {
-	if awsErr, ok := err.(awserr.Error); ok {
-		return fmt.Errorf("%s: %s", awsErr.Code(), awsErr.Message())
+// awserror .
+func awserror(err error) error {
+	if err != nil {
+		if awsErr, ok := err.(awserr.Error); ok {
+			return errors.Errorf("%s: %s", awsErr.Code(), awsErr.Message())
+		}
 	}
 	return err
 }
 
 // upload use s3manager.Uploader
-func (client *s3Client) upload(ctx context.Context, input *s3manager.UploadInput) error {
-	_, err := client.uploader.UploadWithContext(ctx, input)
-	if err != nil {
-		err = decodeAwsErr(err)
-		logger.ErrorfWithContext(ctx, "[aws-s3] put(%s.%s) failed. '%s'", aws.StringValue(input.Bucket), aws.StringValue(input.Key), err.Error())
-		return err
-	}
-	return nil
+func (c *s3Client) upload(ctx context.Context, input *s3manager.UploadInput) error {
+	_, err := c.uploader.UploadWithContext(ctx, input)
+	return awserror(err)
 }
 
-func (client *s3Client) PutObject(input storage.ObjectInput, opts ...func(o *storage.PutOptions)) error {
+// putobject .
+func (c *s3Client) putobject(input storage.ObjectInput, opts ...func(o *storage.PutOptions)) error {
+	if err := storage.ErrorValidator(
+		storage.ValidatorFunc(input.Error),
+		storage.BucketName(input.Bucket()),
+		storage.KeyName(input.Key()),
+	); err != nil {
+		return err
+	}
+
 	var popts = storage.NewPutOptions(opts...)
 
-	if err := input.Error(); err != nil {
-		return err
-	}
-	if err := storage.CheckBucketName(input.Bucket()); err != nil {
-		return err
-	}
-	if err := storage.CheckObjectNameV2(input.Key()); err != nil {
-		return err
-	}
-
-	logger.DebugfWithContext(popts.Context, "[aws-s3] put(%s.%s)", input.Bucket(), input.Key())
+	logger.CallerSkip(popts.CallerSkip+1).WithContext(popts.Context).Debugf("[aws-s3]: put(%s.%s)", input.Bucket(), input.Key())
 
 	// close body
 	defer input.Close()
 
-	return client.upload(popts.Context, &s3manager.UploadInput{
+	return c.upload(popts.Context, &s3manager.UploadInput{
 		Key:         aws.String(input.Key()),
 		Bucket:      aws.String(input.Bucket()),
 		Body:        input.Body(),
@@ -94,82 +96,81 @@ func (client *s3Client) PutObject(input storage.ObjectInput, opts ...func(o *sto
 	})
 }
 
-func (client *s3Client) PutFolder(bucket string, prefix string, root string, opts ...func(o *storage.PutOptions)) error {
-	var popts = storage.NewPutOptions(opts...)
+// PutObject .
+func (c *s3Client) PutObject(input storage.ObjectInput, opts ...func(o *storage.PutOptions)) error {
+	return errors.Wrapf(c.putobject(input, opts...), "[aws-s3]: put(%s.%s)", input.Bucket(), input.Key())
+}
 
-	if err := storage.CheckBucketName(bucket); err != nil {
-		return err
-	}
-	if err := storage.CheckObjectNameV1(prefix); err != nil {
+// putfolder .
+func (c *s3Client) putfolder(bucket string, prefix string, root string, opts ...func(o *storage.PutOptions)) error {
+	if err := storage.ErrorValidator(storage.BucketName(bucket), storage.KeyPrefixName(prefix)); err != nil {
 		return err
 	}
 
 	r := rootpath.NewRoot(root)
 	if !r.IsDir() {
-		return fmt.Errorf(`"%s" is not a folder.`, root)
+		return errors.Errorf(`"%s" is not a folder.`, root)
 	}
 
-	if !strings.HasSuffix(prefix, "/") {
-		return errors.New("the prefix must end in '/'.")
-	}
+	var popts = storage.NewPutOptions(opts...)
 
-	logger.DebugfWithContext(popts.Context, "[aws-s3] put(%s.%s.*)", bucket, prefix)
+	logger.CallerSkip(popts.CallerSkip+1).WithContext(popts.Context).Debugf("[aws-s3]: put(%s.%s.*)", bucket, prefix)
 
-	f := storage.NewFactory()
-
-	// putobject
-	f.Flowline(func(v interface{}) {
+	pool, err := salmon.NewPool(defaultPoolSize, func(v interface{}, stop func()) {
 		if key, ok := v.(*string); ok {
 			input := storage.InputFile(bucket, filepath.ToSlash(filepath.Join(prefix, strings.TrimPrefix(*key, root))), *key)
 			if err := input.Error(); err != nil {
-				logger.ErrorfWithContext(popts.Context, "[aws-s3] put(%s.%s.*)", input.Bucket(), input.Key(), err.Error())
+				stop()
+				logger.WithContext(popts.Context).Errorf("[aws-s3]: put(%s.%s.*): %v", bucket, *key, err)
 			} else {
-				client.upload(popts.Context, &s3manager.UploadInput{
+				if err := c.upload(popts.Context, &s3manager.UploadInput{
 					Key:         aws.String(input.Key()),
 					Bucket:      aws.String(input.Bucket()),
 					Body:        input.Body(),
 					ContentType: aws.String(input.ContentType()),
-				})
+				}); err != nil {
+					stop()
+					logger.WithContext(popts.Context).Errorf("[aws-s3]: put(%s.%s.*): %v", bucket, *key, err)
+				}
 
 				// close body
 				input.Close()
 			}
 		}
 	})
+	if err != nil {
+		return err
+	}
+	defer pool.Wait()
 
-	err := r.Walk(func(path string, info fs.FileInfo) error {
+	return r.Walk(func(path string, info fs.FileInfo) error {
 		if !info.IsDir() {
-			f.Push(&path)
+			pool.Invoke(&path)
 		}
 		return nil
 	})
+}
 
-	f.Wait()
-	return err
+// PutFolder .
+func (c *s3Client) PutFolder(bucket string, prefix string, root string, opts ...func(o *storage.PutOptions)) error {
+	return errors.Wrapf(c.putfolder(bucket, prefix, root, opts...), "[aws-s3]: put(%s.%s.*)", bucket, prefix)
 }
 
 // download use s3manager.Downloader
-func (client *s3Client) download(ctx context.Context, w io.WriterAt, input *s3.GetObjectInput) error {
-	_, err := client.downloader.DownloadWithContext(ctx, w, input)
-	if err != nil {
-		err = decodeAwsErr(err)
-		logger.ErrorfWithContext(ctx, "[aws-s3] get(%s.%s) failed. '%s'", aws.StringValue(input.Bucket), aws.StringValue(input.Key), err.Error())
-		return err
-	}
-	return nil
+func (c *s3Client) download(ctx context.Context, w io.WriterAt, input *s3.GetObjectInput) error {
+	_, err := c.downloader.DownloadWithContext(ctx, w, input)
+	return awserror(err)
 }
 
-func (client *s3Client) GetObject(bucket string, key string, opts ...func(o *storage.GetOptions)) (*storage.ObjectOutputHook, error) {
+// GetObject .
+func (c *s3Client) GetObject(bucket string, key string, opts ...func(o *storage.GetOptions)) (*storage.ObjectOutputHook, error) {
+	if err := storage.ErrorValidator(storage.BucketName(bucket), storage.KeyName(key)); err != nil {
+		return nil, errors.Wrapf(err, "[aws-s3]: get(%s.%s)", bucket, key)
+	}
+
 	var gopts = storage.NewGetOptions(opts...)
 
-	if err := storage.CheckBucketName(bucket); err != nil {
-		return nil, err
-	}
-	if err := storage.CheckObjectNameV2(key); err != nil {
-		return nil, err
-	}
-
-	logger.DebugfWithContext(gopts.Context, "[aws-s3] get(%s.%s)", bucket, key)
+	logger.CallerSkip(gopts.CallerSkip).WithContext(gopts.Context).Debugf("[aws-s3]: get(%s.%s)", bucket, key)
 
 	input := &s3.GetObjectInput{
 		Bucket:    aws.String(bucket),
@@ -179,22 +180,22 @@ func (client *s3Client) GetObject(bucket string, key string, opts ...func(o *sto
 
 	return &storage.ObjectOutputHook{
 		Fetch: func(hook func(output storage.ObjectOutput) error) error {
-			s3Output, err := client.s3.GetObjectWithContext(gopts.Context, input)
-			if err != nil {
-				err = decodeAwsErr(err)
-				logger.ErrorfWithContext(gopts.Context, "[aws-s3] get(%s.%s) failed. '%s'", bucket, key, err.Error())
-				return err
-			}
-			return hook(storage.OutputReadCloser(bucket, key, aws.StringValue(s3Output.ContentType), s3Output.Body))
+			return errors.Wrapf(func() error {
+				output, err := c.s3.GetObjectWithContext(gopts.Context, input)
+				if err != nil {
+					return awserror(err)
+				}
+				return hook(storage.OutputReadCloser(bucket, key, aws.StringValue(output.ContentType), output.Body))
+			}(), "[aws-s3]: get(%s.%s)", bucket, key)
 		},
 		Write: func(w io.WriterAt) error {
-			return client.download(gopts.Context, w, input)
+			return errors.Wrapf(c.download(gopts.Context, w, input), "[aws-s3]: get(%s.%s)", bucket, key)
 		},
 	}, nil
 }
 
 // listobjects .
-func (client *s3Client) listobjects(bucket string, prefix string, lopts *storage.ListOptions, iterator func(keys []*string) error) error {
+func (c *s3Client) listobjects(bucket string, prefix string, lopts *storage.ListOptions, iterator func(keys []*string) error) error {
 	// -1 < lopts.MaxKeys < defaultS3MaxKeys
 	var offset = defaultS3MaxKeys
 	if lopts.MaxKeys > -1 && lopts.MaxKeys < offset {
@@ -215,7 +216,7 @@ func (client *s3Client) listobjects(bucket string, prefix string, lopts *storage
 
 	var count int
 
-	return client.s3.ListObjectsV2PagesWithContext(lopts.Context, input,
+	return awserror(c.s3.ListObjectsV2PagesWithContext(lopts.Context, input,
 		func(output *s3.ListObjectsV2Output, lasted bool) bool {
 			if len(output.Contents) != 0 {
 				keys := make([]*string, 0, len(output.Contents))
@@ -243,67 +244,51 @@ func (client *s3Client) listobjects(bucket string, prefix string, lopts *storage
 			}
 
 			return count != lopts.MaxKeys
-		})
+		}))
 }
 
-func (client *s3Client) GetObjectsWithIterator(bucket string, prefix string, iterator func(keys []*string) error, opts ...func(o *storage.ListOptions)) error {
-	if err := storage.CheckBucketName(bucket); err != nil {
-		return err
-	}
-	if err := storage.CheckObjectNameV1(prefix); err != nil {
-		return err
+// GetObjectsWithIterator .
+func (c *s3Client) GetObjectsWithIterator(bucket string, prefix string, iterator func(keys []*string) error, opts ...func(o *storage.ListOptions)) error {
+	if err := storage.ErrorValidator(storage.BucketName(bucket), storage.KeyPrefixName(prefix)); err != nil {
+		return errors.Wrapf(err, "[aws-s3]: get(%s.%s.*)", bucket, prefix)
 	}
 
 	var lopts = storage.NewListOptions(opts...)
 
-	logger.DebugfWithContext(lopts.Context, "[aws-s3] get(%s.%s.*)", bucket, prefix)
+	logger.CallerSkip(lopts.CallerSkip).WithContext(lopts.Context).Debugf("[aws-s3]: get(%s.%s.*)", bucket, prefix)
 
-	if err := client.listobjects(bucket, prefix, lopts, iterator); err != nil {
-		err = decodeAwsErr(err)
-		logger.ErrorfWithContext(lopts.Context, "[aws-s3] get(%s.%s.*) failed. '%s'", bucket, prefix, err.Error())
-		return err
-	}
-	return nil
+	return errors.Wrapf(c.listobjects(bucket, prefix, lopts, iterator), "[aws-s3]: get(%s.%s.*)", bucket, prefix)
 }
 
-func (client *s3Client) DelObject(bucket string, key string, opts ...func(o *storage.DelOptions)) error {
+// DelObject .
+func (c *s3Client) DelObject(bucket string, key string, opts ...func(o *storage.DelOptions)) error {
+	if err := storage.ErrorValidator(storage.BucketName(bucket), storage.KeyName(key)); err != nil {
+		return errors.Wrapf(err, "[aws-s3]: del(%s.%s)", bucket, key)
+	}
+
 	var dopts = storage.NewDelOptions(opts...)
 
-	if err := storage.CheckBucketName(bucket); err != nil {
-		return err
-	}
-	if err := storage.CheckObjectNameV2(key); err != nil {
-		return err
-	}
+	logger.CallerSkip(dopts.CallerSkip).WithContext(dopts.Context).Debugf("[aws-s3]: del(%s.%s)", bucket, key)
 
-	logger.DebugfWithContext(dopts.Context, "[aws-s3] del(%s.%s)", bucket, key)
-
-	if _, err := client.s3.DeleteObjectWithContext(dopts.Context, &s3.DeleteObjectInput{
+	_, err := c.s3.DeleteObjectWithContext(dopts.Context, &s3.DeleteObjectInput{
 		Bucket:    aws.String(bucket),
 		Key:       aws.String(key),
 		VersionId: aws.String(dopts.VersionID),
-	}); err != nil {
-		err = decodeAwsErr(err)
-		logger.ErrorfWithContext(dopts.Context, "[aws-s3] del(%s.%s)[key] failed. '%s'", bucket, key, err.Error())
-		return err
-	}
-	return nil
+	})
+	return errors.Wrapf(awserror(err), "[aws-s3]: del(%s.%s)", bucket, key)
 }
 
-func (client *s3Client) DelPrefix(bucket string, prefix string, opts ...func(o *storage.DelOptions)) error {
+// DelObjectsWithPrefix .
+func (c *s3Client) DelObjectsWithPrefix(bucket string, prefix string, opts ...func(o *storage.DelOptions)) error {
+	if err := storage.ErrorValidator(storage.BucketName(bucket), storage.KeyPrefixName(prefix)); err != nil {
+		return errors.Wrapf(err, "[aws-s3]: del(%s.%s.*)", bucket, prefix)
+	}
+
 	var dopts = storage.NewDelOptions(opts...)
 
-	if err := storage.CheckBucketName(bucket); err != nil {
-		return err
-	}
-	if err := storage.CheckObjectNameV1(prefix); err != nil {
-		return err
-	}
+	logger.CallerSkip(dopts.CallerSkip).WithContext(dopts.Context).Debugf("[aws-s3]: del(%s.%s.*)", bucket, prefix)
 
-	logger.DebugfWithContext(dopts.Context, "[aws-s3] del(%s.%s.*)", bucket, prefix)
-
-	f := storage.NewFactory()
-	f.Flowline(func(v interface{}) {
+	pool, err := salmon.NewPool(defaultPoolSize, func(v interface{}, stop func()) {
 		if keys, ok := v.([]*string); ok {
 			var items = make([]*s3.ObjectIdentifier, 0, len(keys))
 			for _, key := range keys {
@@ -312,7 +297,7 @@ func (client *s3Client) DelPrefix(bucket string, prefix string, opts ...func(o *
 				})
 			}
 
-			_, err := client.s3.DeleteObjectsWithContext(dopts.Context, &s3.DeleteObjectsInput{
+			_, err := c.s3.DeleteObjectsWithContext(dopts.Context, &s3.DeleteObjectsInput{
 				Bucket: aws.String(bucket),
 				Delete: &s3.Delete{
 					Objects: items,
@@ -320,152 +305,151 @@ func (client *s3Client) DelPrefix(bucket string, prefix string, opts ...func(o *
 				},
 			})
 			if err != nil {
-				f.Closing()
-				logger.ErrorfWithContext(dopts.Context, "[aws-s3] del(%s.%s.*) failed. '%s'", bucket, prefix, decodeAwsErr(err).Error())
+				stop()
+				logger.WithContext(dopts.Context).Errorf("[aws-s3]: del(%s.%s.*): %v", bucket, prefix, awserror(err))
 			}
 		}
 	})
+	if err != nil {
+		return errors.Wrapf(err, "[aws-s3]: del(%s.%s.*)", bucket, prefix)
+	}
+	defer pool.Wait()
 
-	err := client.listobjects(bucket, prefix,
+	return errors.Wrapf(c.listobjects(bucket, prefix,
 		storage.NewListOptions(func(o *storage.ListOptions) {
 			o.Context = dopts.Context
 			o.MaxKeys = -1
 			o.Recursive = true
 		}),
 		func(keys []*string) error {
-			f.PushSlice(keys)
+			var length = len(keys)
+
+			// 一个协程只处理十个 key
+			left, right := 0, 0
+			for left != length {
+				if right = left + 10; right >= length {
+					right = length
+				}
+
+				pool.Invoke(keys[left:right])
+				left = right
+			}
 			return nil
 		},
-	)
-	if err != nil {
-		f.Closing()
-		logger.ErrorfWithContext(dopts.Context, "[aws-s3] del(%s.%s.*) failed. '%s'", bucket, prefix, decodeAwsErr(err).Error())
-	}
-
-	f.Wait()
-	return nil
+	), "[aws-s3]: del(%s.%s.*)", bucket, prefix)
 }
 
 // copyobject .
-func (client *s3Client) copyobject(ctx context.Context, srcBucket, srcKey string, input *s3.CopyObjectInput) error {
-	if _, err := client.s3.CopyObjectWithContext(ctx, input); err != nil {
-		err = decodeAwsErr(err)
-		logger.ErrorfWithContext(ctx, `[aws-s3] copy("%s.%s" -> "%s.%s") failed. "%s"`, srcBucket, srcKey, aws.StringValue(input.Bucket), aws.StringValue(input.Key), err.Error())
-		return err
-	}
-	return nil
+func (c *s3Client) copyobject(ctx context.Context, input *s3.CopyObjectInput) error {
+	_, err := c.s3.CopyObjectWithContext(ctx, input)
+	return awserror(err)
 }
 
-func (client *s3Client) Copy(src, dst storage.Position, opts ...func(o *storage.CopyOptions)) error {
+// copy .
+func (c *s3Client) copy(src, dst storage.Position, opts ...func(o *storage.CopyOptions)) error {
+	if err := storage.ErrorValidator(
+		storage.BucketName(src.Bucket()),
+		storage.BucketName(dst.Bucket()),
+		storage.KeyPrefixName(src.Key()),
+		storage.KeyPrefixName(dst.Key()),
+		storage.ValidatorFunc(func() error {
+			if src.IsPrefix() != dst.IsPrefix() {
+				return errors.New("the src and dst position must either end with '/', or both should be keys")
+			}
+			return nil
+		})); err != nil {
+		return err
+	}
+
 	var copts = storage.NewCopyOptions(opts...)
-
-	if err := storage.CheckBucketName(src.Bucket()); err != nil {
-		return err
-	}
-	if err := storage.CheckObjectNameV1(src.Path()); err != nil {
-		return err
-	}
-	if err := storage.CheckBucketName(dst.Bucket()); err != nil {
-		return err
-	}
-	if err := storage.CheckObjectNameV1(dst.Path()); err != nil {
-		return err
-	}
-
-	if src.IsPrefix() != dst.IsPrefix() {
-		return errors.New("the source and destination position must either end with '/', or both should be keys")
-	}
 
 	switch src.IsPrefix() {
 	case false:
-		logger.DebugfWithContext(copts.Context, `[aws-s3] copy("%s.%s" -> "%s.%s")`, src.Bucket(), src.Path(), dst.Bucket(), dst.Path())
+		logger.CallerSkip(copts.CallerSkip+1).WithContext(copts.Context).Debugf(`[aws-s3]: copy("%s.%s" -> "%s.%s")`, src.Bucket(), src.Key(), dst.Bucket(), dst.Key())
 
-		return client.copyobject(copts.Context, src.Bucket(), src.Path(),
+		return c.copyobject(copts.Context,
 			&s3.CopyObjectInput{
-				CopySource: aws.String(pathJoin(src.Bucket(), src.Path())),
+				CopySource: aws.String(pathjoin(src.Bucket(), src.Key())),
 				Bucket:     aws.String(dst.Bucket()),
-				Key:        aws.String(dst.Path()),
+				Key:        aws.String(dst.Key()),
 			})
 	default:
-		logger.DebugfWithContext(copts.Context, `[aws-s3] copy("%s.%s.*" -> "%s.%s.*")`, src.Bucket(), src.Path(), dst.Bucket(), dst.Path())
+		logger.CallerSkip(copts.CallerSkip+1).WithContext(copts.Context).Debugf(`[aws-s3] copy("%s.%s.*" -> "%s.%s.*")`, src.Bucket(), src.Key(), dst.Bucket(), dst.Key())
 
-		f := storage.NewFactory()
-		f.Flowline(func(v interface{}) {
+		pool, err := salmon.NewPool(defaultPoolSize, func(v interface{}, stop func()) {
 			if keys, ok := v.([]*string); ok {
 				for _, key := range keys {
-					if err := client.copyobject(copts.Context, src.Bucket(), *key,
+					if err := c.copyobject(copts.Context,
 						&s3.CopyObjectInput{
-							CopySource: aws.String(pathJoin(src.Bucket(), *key)),
+							CopySource: aws.String(pathjoin(src.Bucket(), *key)),
 							Bucket:     aws.String(dst.Bucket()),
-							Key:        aws.String(pathJoin(dst.Path(), strings.TrimPrefix(*key, src.Path()))),
+							Key:        aws.String(pathjoin(dst.Key(), strings.TrimPrefix(*key, src.Key()))),
 						}); err != nil {
 					}
 				}
 			}
 		})
-		defer f.Wait()
+		if err != nil {
+			return err
+		}
+		defer pool.Wait()
 
-		if err := client.listobjects(src.Bucket(), src.Path(),
+		return c.listobjects(src.Bucket(), src.Key(),
 			storage.NewListOptions(func(o *storage.ListOptions) {
 				o.Context = copts.Context
 				o.MaxKeys = -1
 				o.Recursive = true
 			}),
 			func(keys []*string) error {
-				f.PushSlice(keys)
+				var length = len(keys)
+
+				// 一个协程只处理十个 key
+				left, right := 0, 0
+				for left != length {
+					if right = left + 10; right >= length {
+						right = length
+					}
+
+					pool.Invoke(keys[left:right])
+					left = right
+				}
 				return nil
-			}); err != nil {
-			f.Closing()
-			err = decodeAwsErr(err)
-			logger.ErrorfWithContext(copts.Context, `[aws-s3] copy("%s.%s.*" -> "%s.%s.*") failed. "%s"`, src.Bucket(), src.Path(), dst.Bucket(), dst.Path(), err.Error())
-			return err
-		}
-		return nil
+			})
 	}
 }
 
+// Copy .
+func (c *s3Client) Copy(src, dst storage.Position, opts ...func(o *storage.CopyOptions)) error {
+	return errors.Wrapf(c.copy(src, dst, opts...), `[aws-s3]: copy("%s.%s" -> "%s.%s")`, src.Bucket(), src.Key(), dst.Bucket(), dst.Key())
+}
+
 // headObject .
-func (client *s3Client) headObject(bucket string, key string, gopts *storage.GetOptions) (*s3.HeadObjectOutput, error) {
-	head, err := client.s3.HeadObjectWithContext(gopts.Context, &s3.HeadObjectInput{
+func (c *s3Client) headObject(bucket string, key string, gopts *storage.GetOptions) (*s3.HeadObjectOutput, error) {
+	head, err := c.s3.HeadObjectWithContext(gopts.Context, &s3.HeadObjectInput{
 		Bucket:    aws.String(bucket),
 		Key:       aws.String(key),
 		VersionId: aws.String(gopts.VersionID),
 	})
-	if err != nil {
-		// not found
-		if awsErr, ok := err.(awserr.RequestFailure); ok && awsErr.StatusCode() == 404 {
-			return nil, nil
-		}
-		// others error
-		return nil, err
-	}
-	return head, nil
+	return head, awserror(err)
 }
 
-func (client *s3Client) IsExist(bucket, key string, opts ...func(o *storage.GetOptions)) (bool, error) {
-	var gopts = storage.NewGetOptions(opts...)
+// exists .
+func (c *s3Client) exists(bucket, key string, opts ...func(o *storage.GetOptions)) error {
+	if err := storage.ErrorValidator(storage.BucketName(bucket), storage.KeyPrefixName(key)); err != nil {
+		return err
+	}
 
-	if err := storage.CheckBucketName(bucket); err != nil {
-		return false, err
-	}
-	if err := storage.CheckObjectNameV1(key); err != nil {
-		return false, err
-	}
+	var gopts = storage.NewGetOptions(opts...)
 
 	switch strings.HasSuffix(key, "/") {
 	// object
 	case false:
-		head, err := client.headObject(bucket, key, gopts)
-		// head !=nil && err == nil
-		if head != nil {
-			return true, nil
-		}
-		return false, err
+		_, err := c.headObject(bucket, key, gopts)
+		return err
 	// prefix
 	default:
 		var isExist bool
-
-		err := client.listobjects(bucket, key,
+		err := c.listobjects(bucket, key,
 			storage.NewListOptions(func(o *storage.ListOptions) {
 				o.Context = gopts.Context
 				o.MaxKeys = 1
@@ -476,147 +460,133 @@ func (client *s3Client) IsExist(bucket, key string, opts ...func(o *storage.GetO
 				return nil
 			},
 		)
-
-		return isExist, decodeAwsErr(err)
+		if !isExist {
+			return storage.ErrNoSuchKey
+		}
+		return err
 	}
 }
 
-func (client *s3Client) Presign(bucket, key string, opts ...func(o *storage.PresignOptions)) (string, error) {
+// IsExist .
+func (c *s3Client) IsExist(bucket, key string, opts ...func(o *storage.GetOptions)) (bool, error) {
+	err := c.exists(bucket, key, opts...)
+	return err == nil, errors.Wrapf(err, "[aws-s3]: exists(%s.%s)", bucket, key)
+}
+
+// presign .
+func (c *s3Client) presign(bucket, key string, opts ...func(o *storage.PresignOptions)) (string, error) {
+	if err := storage.ErrorValidator(storage.BucketName(bucket), storage.KeyName(key)); err != nil {
+		return "", err
+	}
+
 	var popts = storage.NewPresignOptions(opts...)
 
-	if err := storage.CheckBucketName(bucket); err != nil {
-		return "", err
-	}
-	if err := storage.CheckObjectNameV2(key); err != nil {
-		return "", err
-	}
-
-	request, _ := client.s3.GetObjectRequest(&s3.GetObjectInput{
+	request, _ := c.s3.GetObjectRequest(&s3.GetObjectInput{
 		Bucket:    aws.String(bucket),
 		Key:       aws.String(key),
 		VersionId: aws.String(popts.VersionID),
 	})
 
-	if url, err := request.Presign(popts.Expires); err != nil {
-		return "", decodeAwsErr(err)
-	} else {
-		return url, nil
-	}
+	url, err := request.Presign(popts.Expires)
+	return url, awserror(err)
 }
 
-func (client *s3Client) Compress(bucket string, key string, dst io.Writer, opts ...func(o *storage.ListOptions)) error {
+// Presign .
+func (c *s3Client) Presign(bucket, key string, opts ...func(o *storage.PresignOptions)) (string, error) {
+	url, err := c.presign(bucket, key, opts...)
+	return url, errors.Wrapf(err, "[aws-s3]: presign(%s.%s)", bucket, key)
+}
+
+// downloads 。
+func (c *s3Client) downloads(bucket string, prefix string, root string, opts ...func(o *storage.ListOptions)) error {
+	if err := storage.ErrorValidator(storage.BucketName(bucket), storage.KeyPrefixName(prefix)); err != nil {
+		return err
+	}
+
 	var lopts = storage.NewListOptions(opts...)
 
-	if err := storage.CheckBucketName(bucket); err != nil {
+	pool, err := salmon.NewPool(defaultPoolSize, func(v interface{}, stop func()) {
+		if keys, ok := v.([]*string); ok {
+			for _, objkey := range keys {
+				if err := func() error {
+					file, err := openfile(filepath.Join(root, strings.Replace(aws.StringValue(objkey), prefix, "./", 1)))
+					if err != nil {
+						return err
+					}
+					defer file.Close()
+
+					return c.download(lopts.Context, file,
+						&s3.GetObjectInput{
+							Bucket: aws.String(bucket),
+							Key:    objkey,
+						})
+				}(); err != nil {
+					stop()
+					logger.WithContext(lopts.Context).Errorf("[aws-s3]: downloads(%s.%s.*): %v", bucket, *objkey, err)
+				}
+			}
+		}
+	})
+	if err != nil {
 		return err
 	}
-	if err := storage.CheckObjectNameV1(key); err != nil {
-		return err
-	}
+	defer pool.Wait()
 
-	tx := gzip.New(dst)
-	defer tx.Close()
+	logger.CallerSkip(lopts.CallerSkip+1).WithContext(lopts.Context).Debugf("[aws-s3]: downloads(%s.%s.*)", bucket, prefix)
 
-	switch strings.HasSuffix(key, "/") {
-	// object
-	case false:
-		logger.DebugfWithContext(lopts.Context, "[aws-s3] compress(%s.%s)", bucket, key)
+	return c.listobjects(bucket, prefix,
+		storage.NewListOptions(func(o *storage.ListOptions) {
+			o.Context = lopts.Context
+			o.MaxKeys = -1
+			o.Recursive = true
+		}),
+		func(keys []*string) error {
+			var length = len(keys)
 
-		head, err := client.headObject(bucket, key, &storage.GetOptions{Context: lopts.Context})
-		if err != nil {
-			err = decodeAwsErr(err)
-			logger.ErrorfWithContext(lopts.Context, "[aws-s3] compress(%s.%s) failed. '%s'", bucket, key, err.Error())
-			return err
-		}
-		if head == nil {
-			err = storage.ErrNoSuchKey
-			logger.ErrorfWithContext(lopts.Context, "[aws-s3] compress(%s.%s) failed. '%s'", bucket, key, err.Error())
-			return err
-		}
+			// 一个协程只处理十个 key
+			left, right := 0, 0
+			for left != length {
+				if right = left + 10; right >= length {
+					right = length
+				}
 
-		return tx.WithWriteAt(func(at io.WriterAt) error {
-			if err := client.download(lopts.Context, at,
-				&s3.GetObjectInput{
-					Bucket: aws.String(bucket),
-					Key:    aws.String(key),
-				}); err != nil {
-				err = decodeAwsErr(err)
-				logger.ErrorfWithContext(lopts.Context, "[aws-s3] compress(%s.%s) failed. '%s'", bucket, key, err.Error())
-				return err
+				pool.Invoke(keys[left:right])
+				left = right
 			}
 			return nil
 		},
-			func(h *gzip.Header) {
-				h.Name = filepath.Base(key)
-				h.Size = aws.Int64Value(head.ContentLength)
-			})
-	// prefix
-	default:
-		logger.DebugfWithContext(lopts.Context, "[aws-s3] compress(%s.%s.*)", bucket, key)
+	)
+}
 
-		f := storage.NewFactory()
-		f.Flowline(func(v interface{}) {
-			if keys, ok := v.([]*string); ok {
-				for _, objkey := range keys {
-					head, err := client.headObject(bucket, aws.StringValue(objkey), &storage.GetOptions{Context: lopts.Context})
-					if err != nil {
-						err = decodeAwsErr(err)
-						logger.ErrorfWithContext(lopts.Context, "[aws-s3] compress(%s.%s) failed. '%s'", bucket, aws.StringValue(objkey), err.Error())
-						return
-					}
+// Downloads .
+func (c *s3Client) Downloads(bucket string, prefix string, root string, opts ...func(o *storage.ListOptions)) error {
+	return errors.Wrapf(c.downloads(bucket, prefix, root, opts...), "[aws-s3]: downloads(%s.%s.*)", bucket, prefix)
+}
 
-					tx.WithWriteAt(func(at io.WriterAt) error {
-						if err := client.download(lopts.Context, at,
-							&s3.GetObjectInput{
-								Bucket: aws.String(bucket),
-								Key:    objkey,
-							}); err != nil {
-							f.Closing()
-							err = decodeAwsErr(err)
-							logger.ErrorfWithContext(lopts.Context, "[aws-s3] compress(%s.%s.*) failed. '%s'", bucket, aws.StringValue(objkey), err.Error())
-							return err
-						}
-						return nil
-					},
-						func(h *gzip.Header) {
-							h.Name = strings.Replace(aws.StringValue(objkey), key, "./", 1)
-							h.Size = aws.Int64Value(head.ContentLength)
-						})
-				}
-			}
-		})
+// ping .
+func (c *s3Client) ping() error {
+	ctx, _ := context.WithTimeout(context.Background(), c.opts.Timeout)
+	_, err := c.s3.ListBucketsWithContext(ctx, &s3.ListBucketsInput{})
+	return errors.Wrapf(awserror(err), "[aws-s3]: ping")
+}
 
-		err := client.listobjects(bucket, key,
-			storage.NewListOptions(func(o *storage.ListOptions) {
-				o.Context = lopts.Context
-				o.MaxKeys = -1
-				o.Recursive = true
-			}),
-			func(keys []*string) error {
-				f.PushSlice(keys)
-				return nil
-			},
-		)
-		if err != nil {
-			f.Closing()
-			err = decodeAwsErr(err)
-			logger.DebugfWithContext(lopts.Context, "[aws-s3] compress(%s.%s.*) failed. '%s'", bucket, key, err.Error())
-		}
-
-		f.Wait()
-		return err
+// openfile .
+func openfile(name string) (*os.File, error) {
+	if err := os.MkdirAll(filepath.Dir(name), defaultFolderPerm); err != nil {
+		return nil, err
 	}
+	return os.OpenFile(name, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, defaultFilePerm)
 }
 
 // NewClient .
 func NewClient(endpoint string, accessKey string, secretKey string, opts ...func(o *storage.Options)) (storage.Client, error) {
-	client := &s3Client{options: storage.NewOptions(opts...)}
+	client := &s3Client{opts: storage.NewOptions(opts...)}
 
 	// new client
-	session, err := session.NewSession(&aws.Config{
+	sess, err := session.NewSession(&aws.Config{
 		Endpoint:         aws.String(endpoint),
-		Region:           aws.String(client.options.Region),
-		DisableSSL:       aws.Bool(!client.options.UseSSL),
+		Region:           aws.String(client.opts.Region),
+		DisableSSL:       aws.Bool(!client.opts.UseSSL),
 		S3ForcePathStyle: aws.Bool(true),
 		Credentials:      credentials.NewStaticCredentials(accessKey, secretKey, ""),
 		HTTPClient: &http.Client{
@@ -632,27 +602,16 @@ func NewClient(endpoint string, accessKey string, secretKey string, opts ...func
 		return nil, err
 	}
 
-	client.s3 = s3.New(session)
+	client.s3 = s3.New(sess)
 
 	client.uploader = s3manager.NewUploaderWithClient(client.s3, func(uploader *s3manager.Uploader) {
-		uploader.PartSize = defaultPartSize
-		uploader.Concurrency = defaultConcurrency
+		uploader.PartSize = defaultS3ManagerPartSize
+		uploader.Concurrency = defaultS3ManagerConcurrency
 	})
 	client.downloader = s3manager.NewDownloaderWithClient(client.s3, func(downloader *s3manager.Downloader) {
-		downloader.PartSize = defaultPartSize
-		downloader.Concurrency = defaultConcurrency
+		downloader.PartSize = defaultS3ManagerPartSize
+		downloader.Concurrency = defaultS3ManagerConcurrency
 	})
 
 	return client, client.ping()
-}
-
-// ping .
-func (client *s3Client) ping() error {
-	ctx, _ := context.WithTimeout(context.Background(), client.options.Timeout)
-	if _, err := client.s3.ListBucketsWithContext(ctx, &s3.ListBucketsInput{}); err != nil {
-		err = decodeAwsErr(err)
-		logger.ErrorfWithContext(ctx, `[aws-s3] dial "%s" failed. '%s'`, client.s3.Endpoint, err.Error())
-		return err
-	}
-	return nil
 }

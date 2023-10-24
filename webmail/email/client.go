@@ -1,21 +1,21 @@
 package email
 
 import (
+	"github.com/pkg/errors"
 	"gopkg.in/gomail.v2"
-
-	"github.com/charlesbases/logger"
 
 	"github.com/charlesbases/library/webmail"
 )
 
+// ContentType content-type of message
 type ContentType string
 
 const (
-	ContentTypeHTML  ContentType = "text/html"
+	// ContentTypeHTML "text/html"
+	ContentTypeHTML ContentType = "text/html"
+	// ContentTypePlain "text/plain"
 	ContentTypePlain ContentType = "text/plain"
 )
-
-var _ webmail.Message = (*Message)(nil)
 
 // Message .
 type Message struct {
@@ -32,7 +32,8 @@ type client struct {
 	*gomail.Dialer
 }
 
-func (c *client) Send(v ...webmail.Message) error {
+// Send message
+func (c *client) Send(v ...interface{}) error {
 	var mess = make([]*gomail.Message, 0, len(v))
 	for _, data := range v {
 		if x, ok := data.(*Message); ok {
@@ -50,17 +51,11 @@ func (c *client) Send(v ...webmail.Message) error {
 				}
 			}))
 		} else {
-			err := errors.Errorf("unsupported email message type of %T.", x)
-			logger.Errorf(`[webmail.email] %s`, err)
-			return err
+			return errors.Errorf("[email]: send: unsupported email message type of %T.", x)
 		}
 	}
 
-	if err := c.DialAndSend(mess...); err != nil {
-		logger.Errorf(`[webmail.email] send failed. %s`, err)
-		return err
-	}
-	return nil
+	return errors.Wrapf(c.DialAndSend(mess...), "[email]: send")
 }
 
 // NewClient .

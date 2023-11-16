@@ -93,24 +93,24 @@ func (opts *options) do(req *http.Request) (Data, error) {
 
 	rsp, err := opts.cli.Do(req)
 	if err != nil {
-		return nil, errors.Errorf("[HTTP] Client.Do: %v | %s | %s %s", err, req.Host, req.Method, req.URL.Path)
+		return nil, errors.Errorf("[http] Client.Do: %v | %s | %s %s", err, req.Host, req.Method, req.URL.Path)
 	}
 
 	switch rsp.StatusCode {
 	case http.StatusOK:
 		logger.WithContext(req.Context()).Debugf(
-			"[HTTP] %s | %d | %v | %s | %s %s",
+			"[http] %s | %d | %v | %s | %s %s",
 			library.TimeFormat(start), rsp.StatusCode, time.Since(start), req.Host, req.Method, req.URL.Path)
 
 		defer rsp.Body.Close()
 
 		if body, err := io.ReadAll(rsp.Body); err != nil {
-			return nil, errors.Errorf("[HTTP] io.ReadAll: %v | %s | %s %s", err, req.Host, req.Method, req.URL.Path)
+			return nil, errors.Errorf("[http] io.ReadAll: %v | %s | %s %s", err, req.Host, req.Method, req.URL.Path)
 		} else {
 			return body, nil
 		}
 	default:
-		return nil, errors.Errorf("[HTTP] %s | %s | %s | %s %s",
+		return nil, errors.Errorf("[http] %s | %s | %s | %s %s",
 			library.TimeFormat(start), rsp.Status, req.Host, req.Method, req.URL.Path)
 	}
 }
@@ -165,7 +165,7 @@ func NewRequest(method string, host string, options ...option) (Data, error) {
 
 	req, err := http.NewRequestWithContext(opts.ctx, method, opts.warp(host), opts.body)
 	if err != nil {
-		return nil, errors.Errorf("[HTTP] NewRequest: %v | %s | %s", err, strings.Split(host, "?")[0], method)
+		return nil, errors.Errorf("[http] NewRequest: %v | %s | %s", err, strings.Split(host, "?")[0], method)
 	}
 
 	return opts.do(req)

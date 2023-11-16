@@ -46,3 +46,8 @@ func NowString() string {
 func NowTimestamp() int64 {
 	return time.Now().UnixMilli()
 }
+
+// TimeFormat .
+func TimeFormat(t time.Time) string {
+	return t.Format(RFC3339Z)
+}

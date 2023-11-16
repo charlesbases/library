@@ -1,32 +1,18 @@
 package middlewares
 
 import (
-	"bytes"
-	"net/http"
-	"text/template"
+	"fmt"
 	"time"
 
 	"github.com/charlesbases/logger"
 	"github.com/gin-gonic/gin"
 
+	"github.com/charlesbases/library"
 	"github.com/charlesbases/library/framework/gin-gonic/hfwctx"
 )
 
-var (
-	defaultDateFormat = "2006-01-02 15:04:05.000"
-	defaultFormat     = "{{.StartTime}} | {{.Status}} | {{.Duration}} | {{.Hostname}} | {{.Method}} {{.Key}}"
-	defaulttemplate   = template.Must(template.New("negroni_parser").Parse(defaultFormat))
-)
-
-type entry struct {
-	StartTime string
-	Status    int
-	Duration  time.Duration
-	Hostname  string
-	Method    string
-	Path      string
-	Request   *http.Request
-}
+// "{{.StartTime}} | {{.Status}} | {{.Duration}} | {{.Hostname}} | {{.Method}} {{.Path}}"
+const format = "%s | %d | %v | %s | %s %s"
 
 // Negroni .
 var Negroni = &negroni{ignores: make([]string, 0)}
@@ -43,10 +29,10 @@ func (n *negroni) allowed(uri string) bool {
 	}
 	for _, val := range n.ignores {
 		if uri == val {
-			return true
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 // Ignore .
@@ -67,18 +53,15 @@ func (n *negroni) HandlerFunc() gin.HandlerFunc {
 			c := hfwctx.Encode(ctx)
 			c.Next()
 
-			buff := new(bytes.Buffer)
-			defaulttemplate.Execute(buff, &entry{
-				StartTime: start.Format(defaultDateFormat),
-				Status:    ctx.Writer.Status(),
-				Duration:  time.Since(start),
-				Hostname:  ctx.Request.Host,
-				Method:    ctx.Request.Method,
-				Path:      ctx.Request.URL.Path,
-				Request:   ctx.Request,
-			})
-
-			logger.WithContext(c).Info(buff.String())
+			logger.WithContext(c).Info(fmt.Sprintf(
+				format,
+				library.TimeFormat(start),
+				ctx.Writer.Status(),
+				time.Since(start),
+				ctx.Request.RemoteAddr,
+				ctx.Request.Method,
+				ctx.Request.URL.Path,
+			))
 		} else {
 			ctx.Next()
 		}

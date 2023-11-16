@@ -135,7 +135,9 @@ func ContextHook(ctx context.Context) func(l *logger.Logger) *logger.Logger {
 			return l
 		}
 		if val := ctx.Value(headerTraceID); val != nil {
-			return l.Named(val.(string))
+			if id, ok := val.(ID); ok {
+				return l.Named(id.String())
+			}
 		}
 		return l
 	}

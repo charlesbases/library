@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/charlesbases/logger"
@@ -17,6 +18,23 @@ import (
 
 	"github.com/charlesbases/library"
 )
+
+// sync.Pool of options
+var pool = sync.Pool{
+	New: func() interface{} {
+		return &options{
+			cli: &http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+				},
+				Timeout: 3 * time.Second,
+			},
+			ctx:     context.Background(),
+			body:    new(bytes.Buffer),
+			headers: make(map[string]string),
+		}
+	},
+}
 
 // Data bytes
 type Data []byte
@@ -45,6 +63,24 @@ type option func(o *options)
 // warp url
 func (opts *options) warp(host string) string {
 	return strings.Join([]string{host, strings.Join(opts.params, "&")}, "?")
+}
+
+// free .
+func (opts *options) free() {
+	opts.ctx = context.Background()
+	opts.body.Reset()
+
+	if cap(opts.params) > 16 {
+		opts.params = nil
+	} else {
+		opts.params = opts.params[:0]
+	}
+
+	for key := range opts.headers {
+		delete(opts.headers, key)
+	}
+
+	pool.Put(opts)
 }
 
 // do .
@@ -81,16 +117,7 @@ func (opts *options) do(req *http.Request) (Data, error) {
 
 // newOptions .
 func newOptions() *options {
-	return &options{
-		ctx: context.Background(),
-		cli: &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			},
-			Timeout: 3 * time.Second,
-		},
-		body: new(bytes.Buffer),
-	}
+	return pool.Get().(*options)
 }
 
 // Body .
@@ -130,6 +157,8 @@ func Context(ctx context.Context) option {
 // NewRequest .
 func NewRequest(method string, host string, options ...option) (Data, error) {
 	opts := newOptions()
+	defer opts.free()
+
 	for _, o := range options {
 		o(opts)
 	}

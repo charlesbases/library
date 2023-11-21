@@ -565,8 +565,7 @@ func (c *s3Client) Downloads(bucket string, prefix string, root string, opts ...
 
 // ping .
 func (c *s3Client) ping() error {
-	ctx, _ := context.WithTimeout(context.Background(), c.opts.Timeout)
-	_, err := c.s3.ListBucketsWithContext(ctx, &s3.ListBucketsInput{})
+	_, err := c.s3.ListBuckets(nil)
 	return errors.Wrapf(awserror(err), "[aws-s3]: ping")
 }
 
@@ -590,6 +589,7 @@ func NewClient(endpoint string, accessKey string, secretKey string, opts ...func
 		S3ForcePathStyle: aws.Bool(true),
 		Credentials:      credentials.NewStaticCredentials(accessKey, secretKey, ""),
 		HTTPClient: &http.Client{
+			Timeout: client.opts.Timeout,
 			Transport: &http.Transport{
 				// DisableKeepAlives: false,
 				// MaxIdleConns:      1 << 10,

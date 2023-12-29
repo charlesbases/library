@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go v1.44.330
 	github.com/charlesbases/logger v1.4.2
 	github.com/charlesbases/protobuf v1.0.0
-	github.com/charlesbases/salmon v1.0.0
+	github.com/charlesbases/salmon v1.0.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-gonic/gin v1.9.1
 	github.com/gogo/protobuf v1.3.2
@@ -81,7 +81,7 @@ require (
 	github.com/nats-io/nkeys v0.4.4 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/opencontainers/runtime-spec v1.0.2 // indirect
-	github.com/panjf2000/ants/v2 v2.8.2 // indirect
+	github.com/panjf2000/ants/v2 v2.9.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/pierrec/lz4/v4 v4.1.18 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect

@@ -24,7 +24,7 @@ const (
 	// HostnameModel 在副本 hostname 确定或规范时(StatefulSet)，"name.hostname" 可作为单副本或多副本有状态下的服务唯一 id，
 	// 在 hostname 随机时(Deployment)，不可作为单副本或多副本模式下的服务唯一 id。
 	HostnameModel
-	// DistributionModel 使用第三方服务分发多副本的服务唯一 id
+	// DistributionModel 使用第三方服务分发多副本的服务器唯一 id TODO
 	DistributionModel
 )
 

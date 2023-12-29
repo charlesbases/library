@@ -25,8 +25,10 @@ var defaultJwtAuthHandler func(ctx *gin.Context) bool = func(ctx *gin.Context) b
 
 // JwtHandler .
 type JwtHandler struct {
+	// 拦截器
 	Interceptor *Interceptor
-	Handler     func(ctx *gin.Context) bool
+	// 解析器
+	Handler func(ctx *gin.Context) bool
 }
 
 // defaultHandler .

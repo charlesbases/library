@@ -12,7 +12,7 @@ import (
 
 func TestGorm(t *testing.T) {
 	err := Init(new(driver.Postgres), func(o *database.Options) {
-		o.Address = "host=10.64.10.210 port=32537 user=postgres password=mxpostgres dbname=auth sslmode=disable TimeZone=Asia/Shanghai"
+		o.Address = "host=10.64.10.210 port=32537 user=postgres password=mxpostgres dbname=auth application_name=test sslmode=disable TimeZone=Asia/Shanghai"
 	})
 	if err != nil {
 		panic(err)

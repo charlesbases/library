@@ -222,7 +222,7 @@ func BenchmarkS3(b *testing.B) {
 	b.Run("GetObjectsWithIterator", func(b *testing.B) {
 		bench(func() {
 			var total int
-			stderr(c.GetObjectsWithIterator(mxdata, dst, func(keys []*string) error {
+			stderr(c.GetObjectsWithIterator(mxdata, keyPrefix(""), func(keys []*string) error {
 				total += len(keys)
 				return nil
 			}))

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -19,6 +20,8 @@ import (
 	"github.com/charlesbases/library"
 )
 
+const _defaultConnectTimeout = 3 * time.Second
+
 // sync.Pool of options
 var pool = sync.Pool{
 	New: func() interface{} {
@@ -27,7 +30,7 @@ var pool = sync.Pool{
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 				},
-				Timeout: 3 * time.Second,
+				Timeout: _defaultConnectTimeout,
 			},
 			ctx:     context.Background(),
 			body:    new(bytes.Buffer),
@@ -62,11 +65,16 @@ type option func(o *options)
 
 // warp url
 func (opts *options) warp(host string) string {
+	if len(opts.params) == 0 {
+		return host
+	}
 	return strings.Join([]string{host, strings.Join(opts.params, "&")}, "?")
 }
 
 // free .
 func (opts *options) free() {
+	opts.cli.Timeout = _defaultConnectTimeout
+
 	opts.ctx = context.Background()
 	opts.body.Reset()
 
@@ -81,38 +89,6 @@ func (opts *options) free() {
 	}
 
 	pool.Put(opts)
-}
-
-// do .
-func (opts *options) do(req *http.Request) (Data, error) {
-	for key, val := range opts.headers {
-		req.Header.Set(key, val)
-	}
-
-	start := time.Now()
-
-	rsp, err := opts.cli.Do(req)
-	if err != nil {
-		return nil, errors.Errorf("[http] Client.Do: %v | %s | %s %s", err, req.Host, req.Method, req.URL.Path)
-	}
-
-	switch rsp.StatusCode {
-	case http.StatusOK:
-		logger.WithContext(req.Context()).Debugf(
-			"[http] %s | %d | %v | %s | %s %s",
-			library.TimeFormat(start), rsp.StatusCode, time.Since(start), req.Host, req.Method, req.URL.Path)
-
-		defer rsp.Body.Close()
-
-		if body, err := io.ReadAll(rsp.Body); err != nil {
-			return nil, errors.Errorf("[http] io.ReadAll: %v | %s | %s %s", err, req.Host, req.Method, req.URL.Path)
-		} else {
-			return body, nil
-		}
-	default:
-		return nil, errors.Errorf("[http] %s | %s | %s | %s %s",
-			library.TimeFormat(start), rsp.Status, req.Host, req.Method, req.URL.Path)
-	}
 }
 
 // newOptions .
@@ -154,21 +130,11 @@ func Context(ctx context.Context) option {
 	}
 }
 
-// NewRequest .
-func NewRequest(method string, host string, options ...option) (Data, error) {
-	opts := newOptions()
-	defer opts.free()
-
-	for _, o := range options {
-		o(opts)
+// Timeout .
+func Timeout(d time.Duration) option {
+	return func(o *options) {
+		o.cli.Timeout = d
 	}
-
-	req, err := http.NewRequestWithContext(opts.ctx, method, opts.warp(host), opts.body)
-	if err != nil {
-		return nil, errors.Errorf("[http] NewRequest: %v | %s | %s", err, strings.Split(host, "?")[0], method)
-	}
-
-	return opts.do(req)
 }
 
 // Get .
@@ -189,4 +155,60 @@ func Post(path string, options ...option) (Data, error) {
 // Delete .
 func Delete(path string, options ...option) (Data, error) {
 	return NewRequest(http.MethodDelete, path, options...)
+}
+
+// NewRequest .
+func NewRequest(method string, host string, options ...option) (Data, error) {
+	opts := newOptions()
+	defer opts.free()
+
+	for _, o := range options {
+		o(opts)
+	}
+
+	req, err := http.NewRequestWithContext(opts.ctx, method, opts.warp(host), opts.body)
+	if err != nil {
+		return nil, errors.Errorf(`[http] NewRequest: %s "%s": %v`, method, strings.Split(host, "?")[0], err)
+	}
+
+	return opts.do(req)
+}
+
+// do .
+func (opts *options) do(req *http.Request) (Data, error) {
+	for key, val := range opts.headers {
+		req.Header.Set(key, val)
+	}
+
+	start := time.Now()
+
+	var retry int8
+conn:
+	rsp, err := opts.cli.Do(req)
+	if err != nil {
+		// 如果连接超时，则重试
+		if uerr, ok := err.(*url.Error); ok && uerr.Timeout() && retry < 3 {
+			retry++
+			goto conn
+		}
+		return nil, errors.Errorf("[http] Client.Do: %v", err)
+	}
+
+	switch rsp.StatusCode {
+	case http.StatusOK:
+		logger.WithContext(req.Context()).Debugf(
+			"[http] %s | %d | %v | %s | %s %s",
+			library.TimeFormat(start), rsp.StatusCode, time.Since(start), req.Host, req.Method, req.URL.Path)
+
+		defer rsp.Body.Close()
+
+		if body, err := io.ReadAll(rsp.Body); err != nil {
+			return nil, errors.Errorf("[http] io.ReadAll: %v | %s | %s %s", err, req.Host, req.Method, req.URL.Path)
+		} else {
+			return body, nil
+		}
+	default:
+		return nil, errors.Errorf("[http] %s | %s | %s | %s %s",
+			library.TimeFormat(start), rsp.Status, req.Host, req.Method, req.URL.Path)
+	}
 }

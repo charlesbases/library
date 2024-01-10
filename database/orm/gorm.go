@@ -13,7 +13,8 @@ var db *gorm.DB
 // configuration .
 func configuration(opts ...func(o *database.Options)) *database.Options {
 	var options = &database.Options{
-		MaxIdleConns: database.DefaultMaxIdleConns,
+		MaxIdleConns:    database.DefaultMaxIdleConns,
+		ConnMaxIdleTime: database.DefaultConnMaxIdleTime,
 	}
 	for _, opt := range opts {
 		opt(options)
@@ -44,6 +45,7 @@ func NewClient(fn driver.Driver, opts ...func(o *database.Options)) (*gorm.DB, e
 		}
 
 		db.SetMaxIdleConns(options.MaxIdleConns)
+		db.SetConnMaxIdleTime(options.ConnMaxIdleTime)
 	}
 
 	return gormDB, nil

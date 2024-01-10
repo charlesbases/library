@@ -30,6 +30,13 @@ func Test(t *testing.T) {
 		Context(new(gin.Context)))
 }
 
+func TestRetry(t *testing.T) {
+	_, err := Get("http://10.64.10.10")
+	if err != nil {
+		logger.Error(err)
+	}
+}
+
 // Benchmark-16    	     502	   2257775 ns/op	   20048 B/op	     132 allocs/op
 func Benchmark(b *testing.B) {
 	var bench = func(f func()) {

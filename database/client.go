@@ -1,6 +1,10 @@
 package database
 
-import "github.com/pkg/errors"
+import (
+	"time"
+
+	"github.com/pkg/errors"
+)
 
 var (
 	// ErrorInvaildDsn invalid addrs
@@ -9,16 +13,21 @@ var (
 	ErrorDatabaseNil = errors.New("database is not ready")
 )
 
-// DefaultMaxIdleConns default of MaxIdleConns
-const DefaultMaxIdleConns = 1000
+const (
+	// DefaultMaxIdleConns default of db.MaxIdleConns
+	DefaultMaxIdleConns = 200
+	// DefaultConnMaxIdleTime default of db.ConnMaxIdleTime
+	DefaultConnMaxIdleTime = 3 * time.Second
+)
 
 // Options .
 type Options struct {
 	// Address 连接地址
 	Address string
-	// MaxIdleConns 连接池空闲连接数
-	// default 1000
+	// MaxIdleConns 连接池空闲连接数。default: DefaultMaxIdleConns
 	MaxIdleConns int
+	// ConnMaxIdleTime 连接最大空闲时间，超时则清理。default: DefaultConnMaxIdleTime
+	ConnMaxIdleTime time.Duration
 	// MaxOpenConns 连接池最大连接数
 	// <= 0 means unlimited
 	MaxOpenConns int

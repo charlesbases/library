@@ -120,7 +120,13 @@ func (sess *Session) listening() {
 			}
 
 			if !store.verifySession(request.ID) {
-				sess.WriteError(webserver.StatusParamInvalid.WebError(fmt.Sprintf("invalid sess id, %s not connected", request.ID)))
+				sess.WriteError(
+					webserver.StatusParamInvalid.WebError(
+						fmt.Sprintf(
+							"invalid sess id, %s not connected", request.ID,
+						),
+					),
+				)
 				sess.close()
 				return
 			}
@@ -261,11 +267,13 @@ func (sess *Session) subscribe(params *json.RawMessage) {
 	for _, subject := range subjects {
 		sess.subscriptions[subject] = true
 
-		subscribers = append(subscribers, &subscriber{
-			sessionID: sess.id,
-			subject:   subject,
-			onEvent:   sess.broadcast,
-		})
+		subscribers = append(
+			subscribers, &subscriber{
+				sessionID: sess.id,
+				subject:   subject,
+				onEvent:   sess.broadcast,
+			},
+		)
 	}
 	sess.lock.Unlock()
 
@@ -291,11 +299,13 @@ func (sess *Session) unsubscribe(params *json.RawMessage) {
 	for _, subject := range subjects {
 		delete(sess.subscriptions, subject)
 
-		subscribers = append(subscribers, &subscriber{
-			sessionID: sess.id,
-			subject:   subject,
-			onEvent:   sess.broadcast,
-		})
+		subscribers = append(
+			subscribers, &subscriber{
+				sessionID: sess.id,
+				subject:   subject,
+				onEvent:   sess.broadcast,
+			},
+		)
 	}
 	sess.lock.Unlock()
 
@@ -311,27 +321,29 @@ func (sess *Session) close() {
 
 // disconnect .
 func (sess *Session) disconnect() {
-	sess.once.Do(func() {
-		logger.WithContext(sess.ctx).Debugf("[WebSocketID: %s] disconnected", sess.id)
+	sess.once.Do(
+		func() {
+			logger.WithContext(sess.ctx).Debugf("[WebSocketID: %s] disconnected", sess.id)
 
-		sess.ready = false
-		sess.closed = true
+			sess.ready = false
+			sess.closed = true
 
-		store.dropSession(sess.id)
+			store.dropSession(sess.id)
 
-		close(sess.closing)
+			close(sess.closing)
 
-		close(sess.request)
-		close(sess.response)
-		close(sess.broadcast)
+			close(sess.request)
+			close(sess.response)
+			close(sess.broadcast)
 
-		if sess.conn != nil {
-			sess.conn.Close()
-			sess.conn = nil
-		}
+			if sess.conn != nil {
+				sess.conn.Close()
+				sess.conn = nil
+			}
 
-		sess = nil
-	})
+			sess = nil
+		},
+	)
 }
 
 var store = &pool{store: make(map[hfwctx.ID]struct{}, 0)}

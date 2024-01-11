@@ -5,15 +5,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-
-	"github.com/google/uuid"
-	"github.com/nats-io/nats.go"
-
 	"github.com/charlesbases/logger"
 
+	"github.com/google/uuid"
+
+	"github.com/nats-io/nats.go"
+
+	"github.com/pkg/errors"
+
 	"github.com/charlesbases/library"
+
 	"github.com/charlesbases/library/broker"
+
 	"github.com/charlesbases/library/content"
 )
 
@@ -30,12 +33,14 @@ type client struct {
 
 // connect .
 func (c *client) connect() error {
-	conn, err := nats.Connect(c.opts.Address, func(o *nats.Options) error {
-		o.Name = c.id
-		o.ReconnectWait = c.opts.ReconnectWait
-		o.TLSConfig = &tls.Config{InsecureSkipVerify: true}
-		return nil
-	})
+	conn, err := nats.Connect(
+		c.opts.Address, func(o *nats.Options) error {
+			o.Name = c.id
+			o.ReconnectWait = c.opts.ReconnectWait
+			o.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+			return nil
+		},
+	)
 	if err != nil {
 		return err
 	}
@@ -54,12 +59,14 @@ func (c *client) connect() error {
 func (c *client) orCreateStream(v string) error {
 	var err error
 	if _, err = c.js.StreamInfo(v); err == nats.ErrStreamNotFound {
-		_, err = c.js.AddStream(&nats.StreamConfig{
-			Name:      v,
-			Subjects:  []string{v},
-			MaxAge:    7 * 24 * time.Hour,
-			Retention: nats.WorkQueuePolicy,
-		})
+		_, err = c.js.AddStream(
+			&nats.StreamConfig{
+				Name:      v,
+				Subjects:  []string{v},
+				MaxAge:    7 * 24 * time.Hour,
+				Retention: nats.WorkQueuePolicy,
+			},
+		)
 	}
 	return err
 }
@@ -84,12 +91,14 @@ func (c *client) publish(subject string, v interface{}, opts ...func(o *broker.P
 	var data []byte
 	switch o.Codec.ContentType() {
 	case content.Json:
-		data, err = o.Codec.Marshal(&broker.JsonMessage{
-			ID:        uuid.NewString(),
-			Producer:  c.id,
-			CreatedAt: library.NowString(),
-			Data:      v,
-		})
+		data, err = o.Codec.Marshal(
+			&broker.JsonMessage{
+				ID:        uuid.NewString(),
+				Producer:  c.id,
+				CreatedAt: library.NowString(),
+				Data:      v,
+			},
+		)
 	case content.Proto:
 		data, err = o.Codec.Marshal(v)
 	default:
@@ -101,11 +110,13 @@ func (c *client) publish(subject string, v interface{}, opts ...func(o *broker.P
 	}
 
 	// publish
-	if ack, err := c.js.PublishMsgAsync(&nats.Msg{
-		Subject: subject,
-		Reply:   subject,
-		Data:    data,
-	}, nats.ExpectStream(subject)); err != nil {
+	if ack, err := c.js.PublishMsgAsync(
+		&nats.Msg{
+			Subject: subject,
+			Reply:   subject,
+			Data:    data,
+		}, nats.ExpectStream(subject),
+	); err != nil {
 		return err
 	} else {
 		go func() {
@@ -140,7 +151,8 @@ func (c *client) subscribe(subject string, handler broker.Handler, opts ...func(
 	logger.Debugf(`[nats]: subscribe["%s"]`, subject)
 
 	var o = broker.ParseSubscribeOptions(opts...)
-	_, err := c.js.QueueSubscribe(subject, o.ConsumerModel(c.id, subject),
+	_, err := c.js.QueueSubscribe(
+		subject, o.ConsumerModel(c.id, subject),
 		func(msg *nats.Msg) {
 			msg.Ack()
 
@@ -149,7 +161,8 @@ func (c *client) subscribe(subject string, handler broker.Handler, opts ...func(
 				logger.Errorf(`[nats]: consume["%s"]: %v`, msg.Subject, err)
 			}
 		},
-		nats.Durable(strings.Join([]string{c.id, subject}, ".")))
+		nats.Durable(strings.Join([]string{c.id, subject}, ".")),
+	)
 	return err
 }
 

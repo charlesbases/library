@@ -72,12 +72,14 @@ type (
 
 // NewStream .
 func NewStream(opts ...func(o *Options)) func(c *hfwctx.Context) {
-	s := &stream{opts: &Options{
-		Auth:      defaultAuth,
-		Buffer:    defaultBuffer,
-		Timeout:   defaultTimeout,
-		Heartbeat: defaultHeartbeat,
-	}}
+	s := &stream{
+		opts: &Options{
+			Auth:      defaultAuth,
+			Buffer:    defaultBuffer,
+			Timeout:   defaultTimeout,
+			Heartbeat: defaultHeartbeat,
+		},
+	}
 	for _, o := range opts {
 		o(s.opts)
 	}

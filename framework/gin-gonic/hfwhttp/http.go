@@ -197,7 +197,8 @@ conn:
 
 	logger.CallerSkip(3).WithContext(req.Context()).Debugf(
 		"[http] %s | %d | %v | %s | %s %s",
-		library.TimeFormat(start), rsp.StatusCode, time.Since(start), req.URL.Host, req.Method, req.URL.Path)
+		library.TimeFormat(start), rsp.StatusCode, time.Since(start), req.URL.Host, req.Method, req.URL.Path,
+	)
 
 	switch rsp.StatusCode {
 	case http.StatusOK:

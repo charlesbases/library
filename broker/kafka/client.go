@@ -126,12 +126,14 @@ func (c *client) publish(topic string, v interface{}, opts ...func(o *broker.Pub
 	var err error
 	switch o.Codec.ContentType() {
 	case content.Json:
-		data, err = o.Codec.Marshal(&broker.JsonMessage{
-			ID:        uuid.NewString(),
-			Producer:  c.id,
-			CreatedAt: library.NowString(),
-			Data:      v,
-		})
+		data, err = o.Codec.Marshal(
+			&broker.JsonMessage{
+				ID:        uuid.NewString(),
+				Producer:  c.id,
+				CreatedAt: library.NowString(),
+				Data:      v,
+			},
+		)
 	case content.Proto:
 		data, err = o.Codec.Marshal(v)
 	default:
@@ -147,7 +149,9 @@ func (c *client) publish(topic string, v interface{}, opts ...func(o *broker.Pub
 		Value: sarama.ByteEncoder(data),
 	}
 
-	logger.CallerSkip(o.CallerSkip+1).WithContext(o.Context).Debugf(`[kafka]: publish["%s"]: %s`, topic, o.Codec.RawMessage(data))
+	logger.CallerSkip(o.CallerSkip+1).WithContext(o.Context).Debugf(
+		`[kafka]: publish["%s"]: %s`, topic, o.Codec.RawMessage(data),
+	)
 	return nil
 }
 

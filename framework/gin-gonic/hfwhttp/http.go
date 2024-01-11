@@ -139,26 +139,26 @@ func Timeout(d time.Duration) option {
 
 // Get .
 func Get(path string, options ...option) (Data, error) {
-	return NewRequest(http.MethodGet, path, options...)
+	return newRequest(http.MethodGet, path, options...)
 }
 
 // Put .
 func Put(path string, options ...option) (Data, error) {
-	return NewRequest(http.MethodPut, path, options...)
+	return newRequest(http.MethodPut, path, options...)
 }
 
 // Post .
 func Post(path string, options ...option) (Data, error) {
-	return NewRequest(http.MethodPost, path, options...)
+	return newRequest(http.MethodPost, path, options...)
 }
 
 // Delete .
 func Delete(path string, options ...option) (Data, error) {
-	return NewRequest(http.MethodDelete, path, options...)
+	return newRequest(http.MethodDelete, path, options...)
 }
 
-// NewRequest .
-func NewRequest(method string, host string, options ...option) (Data, error) {
+// newRequest .
+func newRequest(method string, host string, options ...option) (Data, error) {
 	opts := newOptions()
 	defer opts.free()
 
@@ -168,7 +168,7 @@ func NewRequest(method string, host string, options ...option) (Data, error) {
 
 	req, err := http.NewRequestWithContext(opts.ctx, method, opts.warp(host), opts.body)
 	if err != nil {
-		return nil, errors.Errorf(`[http] NewRequest: %s "%s": %v`, method, strings.Split(host, "?")[0], err)
+		return nil, errors.Errorf(`[http] %s "%s": %v`, method, strings.Split(host, "?")[0], err)
 	}
 
 	return opts.do(req)
@@ -191,24 +191,23 @@ conn:
 			retry++
 			goto conn
 		}
-		return nil, errors.Errorf("[http] Client.Do: %v", err)
+		return nil, errors.Errorf("[http] %v", err)
 	}
+	defer rsp.Body.Close()
+
+	logger.CallerSkip(3).WithContext(req.Context()).Debugf(
+		"[http] %s | %d | %v | %s | %s %s",
+		library.TimeFormat(start), rsp.StatusCode, time.Since(start), req.URL.Host, req.Method, req.URL.Path)
 
 	switch rsp.StatusCode {
 	case http.StatusOK:
-		logger.WithContext(req.Context()).Debugf(
-			"[http] %s | %d | %v | %s | %s %s",
-			library.TimeFormat(start), rsp.StatusCode, time.Since(start), req.Host, req.Method, req.URL.Path)
-
-		defer rsp.Body.Close()
-
-		if body, err := io.ReadAll(rsp.Body); err != nil {
-			return nil, errors.Errorf("[http] io.ReadAll: %v | %s | %s %s", err, req.Host, req.Method, req.URL.Path)
+		var data bytes.Buffer
+		if _, err := io.Copy(&data, rsp.Body); err != nil {
+			return nil, errors.Errorf(`[http] %s "%s%s": %v`, req.Method, req.URL.Host, req.URL.Path, err)
 		} else {
-			return body, nil
+			return data.Bytes(), nil
 		}
 	default:
-		return nil, errors.Errorf("[http] %s | %s | %s | %s %s",
-			library.TimeFormat(start), rsp.Status, req.Host, req.Method, req.URL.Path)
+		return nil, errors.Errorf(`[http] %s "%s%s": %s`, req.Method, req.URL.Host, req.URL.Path, rsp.Status)
 	}
 }

@@ -21,11 +21,6 @@ func custom(dt string) glogger.Interface {
 	return &log{dt: fmt.Sprintf("[%s] ", dt)}
 }
 
-// warp .
-func (log *log) warp(format string) string {
-	return log.dt + format
-}
-
 // LogMode .
 func (log *log) LogMode(level glogger.LogLevel) glogger.Interface {
 	return log
@@ -33,17 +28,17 @@ func (log *log) LogMode(level glogger.LogLevel) glogger.Interface {
 
 // Info .
 func (log *log) Info(ctx context.Context, format string, v ...interface{}) {
-	logger.WithContext(ctx).Infof(log.warp(format), v...)
+	logger.WithContext(ctx).Infof(log.dt+format, v...)
 }
 
 // Warn .
 func (log *log) Warn(ctx context.Context, format string, v ...interface{}) {
-	logger.WithContext(ctx).Warnf(log.warp(format), v...)
+	logger.WithContext(ctx).Warnf(log.dt+format, v...)
 }
 
 // Error .
 func (log *log) Error(ctx context.Context, format string, v ...interface{}) {
-	logger.WithContext(ctx).Errorf(log.warp(format), v...)
+	logger.WithContext(ctx).Errorf(log.dt+format, v...)
 }
 
 // Trace .
@@ -52,8 +47,8 @@ func (log *log) Trace(ctx context.Context, begin time.Time, fc func() (sql strin
 	sql, rows := fc()
 
 	if err != nil /* && !errors.Is(err, gorm.ErrRecordNotFound)*/ {
-		logger.CallerSkip(5).WithContext(ctx).Errorf(log.warp("%s | %v"), sql, err)
+		logger.CallerSkip(5).WithContext(ctx).Errorf("%s%s | %v", log.dt, sql, err)
 	} else {
-		logger.CallerSkip(3).WithContext(ctx).Debugf(log.warp("%s | %d rows | %v"), sql, rows, elapsed)
+		logger.CallerSkip(3).WithContext(ctx).Debugf("%s%s | %d rows | %v", log.dt, sql, rows, elapsed)
 	}
 }

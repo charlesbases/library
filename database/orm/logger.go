@@ -10,6 +10,11 @@ import (
 	"github.com/charlesbases/logger"
 )
 
+const (
+	errorFormat = "%s%s | %v"
+	debugFormat = "%s%s | %d rows | %v"
+)
+
 // log .
 type log struct {
 	// dt driver.Driver.Type
@@ -28,17 +33,17 @@ func (log *log) LogMode(level glogger.LogLevel) glogger.Interface {
 
 // Info .
 func (log *log) Info(ctx context.Context, format string, v ...interface{}) {
-	logger.WithContext(ctx).Infof(log.dt+format, v...)
+	logger.Context(ctx).Infof(log.dt+format, v...)
 }
 
 // Warn .
 func (log *log) Warn(ctx context.Context, format string, v ...interface{}) {
-	logger.WithContext(ctx).Warnf(log.dt+format, v...)
+	logger.Context(ctx).Warnf(log.dt+format, v...)
 }
 
 // Error .
 func (log *log) Error(ctx context.Context, format string, v ...interface{}) {
-	logger.WithContext(ctx).Errorf(log.dt+format, v...)
+	logger.Context(ctx).Errorf(log.dt+format, v...)
 }
 
 // Trace .
@@ -47,8 +52,8 @@ func (log *log) Trace(ctx context.Context, begin time.Time, fc func() (sql strin
 	sql, rows := fc()
 
 	if err != nil /* && !errors.Is(err, gorm.ErrRecordNotFound)*/ {
-		logger.CallerSkip(5).WithContext(ctx).Errorf("%s%s | %v", log.dt, sql, err)
+		logger.CallerSkip(5).Context(ctx).Errorf(errorFormat, log.dt, sql, err)
 	} else {
-		logger.CallerSkip(3).WithContext(ctx).Debugf("%s%s | %d rows | %v", log.dt, sql, rows, elapsed)
+		logger.CallerSkip(3).Context(ctx).Debugf(debugFormat, log.dt, sql, rows, elapsed)
 	}
 }

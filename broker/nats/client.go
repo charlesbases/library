@@ -122,11 +122,11 @@ func (c *client) publish(subject string, v interface{}, opts ...func(o *broker.P
 		go func() {
 			select {
 			case <-ack.Ok():
-				logger.WithContext(o.Context).Debugf(`[nats]: publish["%s"]: %s`, subject, o.Codec.RawMessage(data))
+				logger.Context(o.Context).Debugf(`[nats]: publish["%s"]: %s`, subject, o.Codec.RawMessage(data))
 			case err := <-ack.Err():
-				logger.WithContext(o.Context).Errorf(`[nats]: publish["%s"]: %v`, subject, err)
+				logger.Context(o.Context).Errorf(`[nats]: publish["%s"]: %v`, subject, err)
 			case <-time.NewTimer(o.Timeout).C:
-				logger.WithContext(o.Context).Errorf(`[nats]: publish["%s"]: publish timeout`, subject)
+				logger.Context(o.Context).Errorf(`[nats]: publish["%s"]: publish timeout`, subject)
 			}
 		}()
 	}

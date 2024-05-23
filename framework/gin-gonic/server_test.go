@@ -67,7 +67,7 @@ func TestRun(t *testing.T) {
 
 // websockerAction .
 func websockerAction(c *hfwctx.Context, session *websocket.Session) {
-	logger.WithContext(c).Debug(time.Now())
+	logger.Context(c).Debug(time.Now())
 
 	for {
 		select {

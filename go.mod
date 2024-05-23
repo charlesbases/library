@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/IBM/sarama v1.41.0
 	github.com/aws/aws-sdk-go v1.44.330
-	github.com/charlesbases/logger v1.4.2
+	github.com/charlesbases/logger v1.5.1
 	github.com/charlesbases/protobuf v1.0.0
 	github.com/charlesbases/salmon v1.0.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
@@ -35,7 +35,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bytedance/sonic v1.9.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
-	github.com/charlesbases/colors v1.0.0 // indirect
+	github.com/charlesbases/colors v1.0.2 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/containerd/cgroups v0.0.0-20201119153540-4cbc285b3327 // indirect
 	github.com/coreos/go-systemd/v22 v22.1.0 // indirect
@@ -91,8 +91,8 @@ require (
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
-	go.uber.org/multierr v1.10.0 // indirect
-	go.uber.org/zap v1.26.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/crypto v0.12.0 // indirect
 	golang.org/x/net v0.14.0 // indirect

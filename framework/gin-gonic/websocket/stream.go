@@ -91,13 +91,13 @@ func NewStream(opts ...func(o *Options)) func(c *hfwctx.Context) {
 		}
 
 		if err := s.opts.Auth(c); err != nil {
-			logger.WithContext(c).Error("websocket authorization failed. ", err)
+			logger.Context(c).Error("websocket authorization failed. ", err)
 			c.ReturnError(webserver.StatusAccessDenied, err)
 			return
 		}
 
 		if err := s.connect(c); err != nil {
-			logger.WithContext(c).Error("websocket connect failed. ", err)
+			logger.Context(c).Error("websocket connect failed. ", err)
 		}
 		return
 	}
@@ -122,13 +122,13 @@ func (stream *stream) newSession(c *hfwctx.Context, conn *websocket.Conn) *Sessi
 func (stream *stream) connect(c *hfwctx.Context) error {
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		logger.WithContext(c).Error("websocket upgrade error: ", err)
+		logger.Context(c).Error("websocket upgrade error: ", err)
 		return webserver.StatusBadRequest.WebError(err)
 	}
 	defer conn.Close()
 
 	sess := stream.newSession(c, conn)
-	logger.WithContext(sess.ctx).Debugf("[WebSocketID: %s] connected", sess.id)
+	logger.Context(sess.ctx).Debugf("[WebSocketID: %s] connected", sess.id)
 
 	sess.ping()
 	sess.serve()

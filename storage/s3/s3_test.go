@@ -47,10 +47,6 @@ const (
 )
 
 func init() {
-	logger.SetDefault(func(o *logger.Options) {
-		o.Colourful = true
-	})
-
 	client, err := clientBOS()
 	if err != nil {
 		logger.Fatal(err)

@@ -75,7 +75,7 @@ func (m *Mutex) Lock() {
 			ok, _ := r.client.SetNX(m.opts.Context, string(m.key), r.id, m.opts.TTL).Result()
 			if ok {
 				m.locked = true
-				logger.WithContext(m.opts.Context).Debugf(`[redis](%s): locked: %v.`, m.key, m.opts.TTL)
+				logger.Context(m.opts.Context).Debugf(`[redis](%s): locked: %v.`, m.key, m.opts.TTL)
 				return
 			}
 		}
@@ -85,13 +85,13 @@ func (m *Mutex) Lock() {
 // Unlock .
 func (m *Mutex) Unlock() {
 	if !m.locked {
-		logger.WithContext(m.opts.Context).Errorf(`[redis](%s): unlocked: unlock of unlocked mutex`, m.key)
+		logger.Context(m.opts.Context).Errorf(`[redis](%s): unlocked: unlock of unlocked mutex`, m.key)
 		return
 	}
 
 	m.locked = false
 
-	logger.WithContext(m.opts.Context).Debugf(`[redis](%s): unlocked`, m.key)
+	logger.Context(m.opts.Context).Debugf(`[redis](%s): unlocked`, m.key)
 	r.Del(m.key, func(o *DelOptions) { o.Context = m.opts.Context })
 }
 

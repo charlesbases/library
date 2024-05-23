@@ -83,7 +83,7 @@ func (c *s3Client) putobject(input storage.ObjectInput, opts ...func(o *storage.
 
 	var popts = storage.NewPutOptions(opts...)
 
-	logger.CallerSkip(popts.CallerSkip+1).WithContext(popts.Context).Debugf("[aws-s3]: put(%s.%s)", input.Bucket(), input.Key())
+	logger.CallerSkip(popts.CallerSkip+1).Context(popts.Context).Debugf("[aws-s3]: put(%s.%s)", input.Bucket(), input.Key())
 
 	// close body
 	defer input.Close()
@@ -116,7 +116,7 @@ func (c *s3Client) putfolder(bucket string, prefix string, root string, opts ...
 
 	var popts = storage.NewPutOptions(opts...)
 
-	logger.CallerSkip(popts.CallerSkip+1).WithContext(popts.Context).Debugf("[aws-s3]: put(%s.%s.*)", bucket, prefix)
+	logger.CallerSkip(popts.CallerSkip+1).Context(popts.Context).Debugf("[aws-s3]: put(%s.%s.*)", bucket, prefix)
 
 	pool, err := salmon.NewPool(
 		defaultPoolSize, func(v interface{}, stop func()) {
@@ -126,7 +126,7 @@ func (c *s3Client) putfolder(bucket string, prefix string, root string, opts ...
 				)
 				if err := input.Error(); err != nil {
 					stop()
-					logger.WithContext(popts.Context).Errorf("[aws-s3]: put(%s.%s.*): %v", bucket, *key, err)
+					logger.Context(popts.Context).Errorf("[aws-s3]: put(%s.%s.*): %v", bucket, *key, err)
 				} else {
 					if err := c.upload(
 						popts.Context, &s3manager.UploadInput{
@@ -137,7 +137,7 @@ func (c *s3Client) putfolder(bucket string, prefix string, root string, opts ...
 						},
 					); err != nil {
 						stop()
-						logger.WithContext(popts.Context).Errorf("[aws-s3]: put(%s.%s.*): %v", bucket, *key, err)
+						logger.Context(popts.Context).Errorf("[aws-s3]: put(%s.%s.*): %v", bucket, *key, err)
 					}
 
 					// close body
@@ -180,7 +180,7 @@ func (c *s3Client) GetObject(bucket string, key string, opts ...func(o *storage.
 
 	var gopts = storage.NewGetOptions(opts...)
 
-	logger.CallerSkip(gopts.CallerSkip).WithContext(gopts.Context).Debugf("[aws-s3]: get(%s.%s)", bucket, key)
+	logger.CallerSkip(gopts.CallerSkip).Context(gopts.Context).Debugf("[aws-s3]: get(%s.%s)", bucket, key)
 
 	input := &s3.GetObjectInput{
 		Bucket:    aws.String(bucket),
@@ -271,7 +271,7 @@ func (c *s3Client) GetObjectsWithIterator(bucket string, prefix string, iterator
 
 	var lopts = storage.NewListOptions(opts...)
 
-	logger.CallerSkip(lopts.CallerSkip).WithContext(lopts.Context).Debugf("[aws-s3]: get(%s.%s.*)", bucket, prefix)
+	logger.CallerSkip(lopts.CallerSkip).Context(lopts.Context).Debugf("[aws-s3]: get(%s.%s.*)", bucket, prefix)
 
 	return errors.Wrapf(c.listobjects(bucket, prefix, lopts, iterator), "[aws-s3]: get(%s.%s.*)", bucket, prefix)
 }
@@ -284,7 +284,7 @@ func (c *s3Client) DelObject(bucket string, key string, opts ...func(o *storage.
 
 	var dopts = storage.NewDelOptions(opts...)
 
-	logger.CallerSkip(dopts.CallerSkip).WithContext(dopts.Context).Debugf("[aws-s3]: del(%s.%s)", bucket, key)
+	logger.CallerSkip(dopts.CallerSkip).Context(dopts.Context).Debugf("[aws-s3]: del(%s.%s)", bucket, key)
 
 	_, err := c.s3.DeleteObjectWithContext(
 		dopts.Context, &s3.DeleteObjectInput{
@@ -304,7 +304,7 @@ func (c *s3Client) DelObjectsWithPrefix(bucket string, prefix string, opts ...fu
 
 	var dopts = storage.NewDelOptions(opts...)
 
-	logger.CallerSkip(dopts.CallerSkip).WithContext(dopts.Context).Debugf("[aws-s3]: del(%s.%s.*)", bucket, prefix)
+	logger.CallerSkip(dopts.CallerSkip).Context(dopts.Context).Debugf("[aws-s3]: del(%s.%s.*)", bucket, prefix)
 
 	pool, err := salmon.NewPool(
 		defaultPoolSize, func(v interface{}, stop func()) {
@@ -329,7 +329,7 @@ func (c *s3Client) DelObjectsWithPrefix(bucket string, prefix string, opts ...fu
 				)
 				if err != nil {
 					stop()
-					logger.WithContext(dopts.Context).Errorf("[aws-s3]: del(%s.%s.*): %v", bucket, prefix, awserror(err))
+					logger.Context(dopts.Context).Errorf("[aws-s3]: del(%s.%s.*): %v", bucket, prefix, awserror(err))
 				}
 			}
 		},
@@ -397,7 +397,7 @@ func (c *s3Client) copy(src, dst storage.Position, opts ...func(o *storage.CopyO
 
 	switch src.IsPrefix() {
 	case false:
-		logger.CallerSkip(copts.CallerSkip+1).WithContext(copts.Context).Debugf(
+		logger.CallerSkip(copts.CallerSkip+1).Context(copts.Context).Debugf(
 			`[aws-s3]: copy("%s.%s" -> "%s.%s")`, src.Bucket(), src.Key(), dst.Bucket(), dst.Key(),
 		)
 
@@ -410,7 +410,7 @@ func (c *s3Client) copy(src, dst storage.Position, opts ...func(o *storage.CopyO
 			},
 		)
 	default:
-		logger.CallerSkip(copts.CallerSkip+1).WithContext(copts.Context).Debugf(
+		logger.CallerSkip(copts.CallerSkip+1).Context(copts.Context).Debugf(
 			`[aws-s3] copy("%s.%s.*" -> "%s.%s.*")`, src.Bucket(), src.Key(), dst.Bucket(), dst.Key(),
 		)
 
@@ -580,7 +580,7 @@ func (c *s3Client) downloads(bucket string, prefix string, root string, opts ...
 						)
 					}(); err != nil {
 						stop()
-						logger.WithContext(lopts.Context).Errorf("[aws-s3]: downloads(%s.%s.*): %v", bucket, *objkey, err)
+						logger.Context(lopts.Context).Errorf("[aws-s3]: downloads(%s.%s.*): %v", bucket, *objkey, err)
 					}
 				}
 			}
@@ -591,7 +591,7 @@ func (c *s3Client) downloads(bucket string, prefix string, root string, opts ...
 	}
 	defer pool.Wait()
 
-	logger.CallerSkip(lopts.CallerSkip+1).WithContext(lopts.Context).Debugf("[aws-s3]: downloads(%s.%s.*)", bucket, prefix)
+	logger.CallerSkip(lopts.CallerSkip+1).Context(lopts.Context).Debugf("[aws-s3]: downloads(%s.%s.*)", bucket, prefix)
 
 	return c.listobjects(
 		bucket, prefix,

@@ -53,7 +53,7 @@ func (n *negroni) HandlerFunc() gin.HandlerFunc {
 			c := hfwctx.Encode(ctx)
 			c.Next()
 
-			logger.WithContext(c).Info(fmt.Sprintf(
+			logger.Context(c).Info(fmt.Sprintf(
 				format,
 				library.TimeFormat(start),
 				ctx.Writer.Status(),

@@ -149,9 +149,7 @@ func (c *client) publish(topic string, v interface{}, opts ...func(o *broker.Pub
 		Value: sarama.ByteEncoder(data),
 	}
 
-	logger.CallerSkip(o.CallerSkip+1).WithContext(o.Context).Debugf(
-		`[kafka]: publish["%s"]: %s`, topic, o.Codec.RawMessage(data),
-	)
+	logger.CallerSkip(o.CallerSkip+1).Context(o.Context).Debugf(`[kafka]: publish["%s"]: %s`, topic, o.Codec.RawMessage(data))
 	return nil
 }
 

@@ -195,7 +195,7 @@ conn:
 	}
 	defer rsp.Body.Close()
 
-	logger.CallerSkip(3).WithContext(req.Context()).Debugf(
+	logger.CallerSkip(3).Context(req.Context()).Debugf(
 		"[http] %s | %d | %v | %s | %s %s",
 		library.TimeFormat(start), rsp.StatusCode, time.Since(start), req.URL.Host, req.Method, req.URL.Path,
 	)

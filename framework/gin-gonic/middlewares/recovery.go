@@ -18,7 +18,7 @@ func Recovery() gin.HandlerFunc {
 				stack = stack[:runtime.Stack(stack, false)]
 				infor := &p{err: err, stack: stack, request: ctx.Request}
 
-				logger.WithContext(ctx).Errorf("\nPanic:   [%s]\nRequest: [%s]\nStack:   [%s]",
+				logger.Context(ctx).Errorf("\nPanic:   [%s]\nRequest: [%s]\nStack:   [%s]",
 					infor.err, infor.RequestDesc(), infor.StackAsString(),
 				)
 			}

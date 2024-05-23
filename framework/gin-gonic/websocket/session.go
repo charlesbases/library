@@ -67,7 +67,7 @@ func (sess *Session) serve() {
 		case <-time.After(sess.opts.Heartbeat):
 			if sess.ready {
 				sess.ready = false
-				logger.WithContext(sess.ctx).Debugf("[WebSocketID: %s] no heartbeat", sess.id)
+				logger.Context(sess.ctx).Debugf("[WebSocketID: %s] no heartbeat", sess.id)
 			}
 		case request, ok := <-sess.request:
 			if ok {
@@ -111,7 +111,7 @@ func (sess *Session) listening() {
 				switch sess.isCloseError(err) {
 				case websocket.CloseNormalClosure, websocket.CloseNoStatusReceived:
 				default:
-					logger.WithContext(sess.ctx).Errorf("[WebSocketID: %s] read message error: %s", sess.id, err)
+					logger.Context(sess.ctx).Errorf("[WebSocketID: %s] read message error: %s", sess.id, err)
 					sess.WriteError(webserver.StatusBadRequest.WebError(err))
 				}
 
@@ -151,7 +151,7 @@ func (sess *Session) listening() {
 			}
 
 		r:
-			logger.WithContext(sess.ctx).Debugf("[WebSocketID: %s] [r] Method: %s", sess.id, request.Method.String())
+			logger.Context(sess.ctx).Debugf("[WebSocketID: %s] [r] Method: %s", sess.id, request.Method.String())
 			sess.request <- request
 		}
 	}
@@ -170,11 +170,11 @@ func (sess *Session) isCloseError(err error) int {
 func (sess *Session) write(v *WebSocketResponse) error {
 	if sess.ready {
 		v.ID = sess.id
-		logger.WithContext(sess.ctx).Debugf("[WebSocketID: %s] [w] Method: %s", sess.id, v.Method.String())
+		logger.Context(sess.ctx).Debugf("[WebSocketID: %s] [w] Method: %s", sess.id, v.Method.String())
 		return sess.conn.WriteJSON(v)
 	}
 
-	logger.WithContext(sess.ctx).Debugf("[WebSocketID: %s] write failed. connect not ready.", sess.id)
+	logger.Context(sess.ctx).Debugf("[WebSocketID: %s] write failed. connect not ready.", sess.id)
 	return nil
 }
 
@@ -255,7 +255,7 @@ func (sess *Session) subscribe(params *json.RawMessage) {
 	var subjects = make([]subject, 0)
 
 	if err := json.Unmarshal(*params, &subjects); err != nil {
-		logger.WithContext(sess.ctx).Errorf("[WebSocketID: %s] subscribe failed. %s", sess.id, err)
+		logger.Context(sess.ctx).Errorf("[WebSocketID: %s] subscribe failed. %s", sess.id, err)
 		sess.WriteError(webserver.StatusParamInvalid.WebError(err))
 		sess.close()
 		return
@@ -287,7 +287,7 @@ func (sess *Session) unsubscribe(params *json.RawMessage) {
 	var subjects = make([]subject, 0)
 
 	if err := json.Unmarshal(*params, &subjects); err != nil {
-		logger.WithContext(sess.ctx).Errorf("[WebSocketID: %s] unsubscribe failed. %s", sess.id, err)
+		logger.Context(sess.ctx).Errorf("[WebSocketID: %s] unsubscribe failed. %s", sess.id, err)
 		sess.WriteError(webserver.StatusParamInvalid.WebError(err))
 		sess.close()
 		return
@@ -323,7 +323,7 @@ func (sess *Session) close() {
 func (sess *Session) disconnect() {
 	sess.once.Do(
 		func() {
-			logger.WithContext(sess.ctx).Debugf("[WebSocketID: %s] disconnected", sess.id)
+			logger.Context(sess.ctx).Debugf("[WebSocketID: %s] disconnected", sess.id)
 
 			sess.ready = false
 			sess.closed = true
